@@ -1,9 +1,9 @@
 ---
 title: "ATIF v2.0 Specification"
-description: "Core normative specification for Agent Trajectory Interchange Format v2.0 (unified dual-mode NDJSON, lineage, streaming, and canonical actions)."
+description: "Core normative specification for Agent Trajectory Interchange Format v2.0 (dual-mode NDJSON, lineage, streaming consolidation, and canonical actions)."
 atif_version: "2.0"
 schema_version: "ATIF-v2.0"
-status: "final"
+status: "draft"
 release_date: "2026-11-25"
 doc_type: "spec"
 order: 1
@@ -13,107 +13,35 @@ supersedes: "1.8"
 
 # Agent Trajectory Interchange Format (ATIF) v2.0 Specification
 
-| Field | Value |
-| :--- | :--- |
-| **Version** | `ATIF-v2.0` |
-| **Status** | Final |
-| **Author** | Michael Bleigh |
-| **Release Date** | 2026-11-25 |
-| **Origin** | [Harbor RFC 0004 (PR #4134)](https://github.com/harbor-framework/harbor/pull/4134) |
-| **Supersedes** | [ATIF v1.8 Specification](../v1.8/SPEC.md) ([RFC 0001: ATIF v1.0–v1.8][rfc-0001]) |
-| **References** | • [Canonical Actions Catalog](./references/canonical-actions.md)<br>• [Translating Native Harness Formats to ATIF v2.0](./references/harness-examples.md)<br>• [ATIF v1.x Migration, Token Normalization, & Official Extensions](./references/migration-and-extensions.md)<br>• [Wire (Protobuf) & Warehouse (SQL) Projections](./references/projections.md) |
-| **Schemas & Examples** | • [JSON Schema 2020-12 (`atif-record.schema.json`)](./schema/atif-record.schema.json)<br>• [Protocol Buffer Schema (`atif.proto`)](./schema/atif.proto)<br>• [Warehouse SQL DDL (`warehouse.sql`)](./schema/warehouse.sql)<br>• [Reference Fixtures](./examples/session.atif-e.jsonl) & [`session.atif.jsonl`](./examples/session.atif.jsonl) |
+- **Schema Version**: `ATIF-v2.0`
+- **Status**: Working Draft
+- **Updated**: 2026-11-25
+- **Supersedes**: [ATIF v1.8 Specification](../v1.8/SPEC.md)
+- **Origin**: [Harbor RFC 0004 (PR #4134)](https://github.com/harbor-framework/harbor/pull/4134)
+- **Companion Documents**:
+  - [Canonical Actions Catalog](./references/canonical-actions.md) *(Normative)*
+  - [Official Extension Namespaces](./references/extensions.md) *(Normative)*
+  - [Wire (Protobuf) & Warehouse (SQL) Projections](./references/projections.md) *(Normative)*
+  - [ATIF v1.x to v2.0 Migration](./references/v1-migration.md) *(Normative)*
+  - [Translating Native Harness Formats](./references/harness-examples.md) *(Non-normative)*
+- **Machine-Readable Schemas & Fixtures**:
+  - JSON Schema 2020-12: [`atif-record.schema.json`](./schema/atif-record.schema.json), [`canonical-actions.schema.json`](./schema/canonical-actions.schema.json), [`common-defs.schema.json`](./schema/common-defs.schema.json)
+  - Protocol Buffers: [`atif.proto`](./schema/atif.proto) · Warehouse SQL DDL: [`warehouse.sql`](./schema/warehouse.sql)
+  - Reference Fixtures: [`session.atif-e.jsonl`](./examples/session.atif-e.jsonl) · [`session.atif.jsonl`](./examples/session.atif.jsonl)
 
 ---
 
-## Introduction & Motivation
+## Overview
 
-The **Agent Trajectory Interchange Format (ATIF)** defines Harbor's standard representation
-for autonomous agent interactions across benchmark evaluation, debugging, visualization,
-Supervised Fine-Tuning (SFT), and Reinforcement Learning (RL).
+*This section is non-normative.*
 
-Since ATIF v1.0 was introduced, its clean single-document design has gained wide adoption
-across 30+ agent harnesses in Harbor and across external observability, evaluation, and
-Harbor-integrated RL ecosystems—including [NVIDIA NeMo][nemo-atif],
-[Arize Phoenix][phoenix-atif], [Letta `@letta-ai/trajectory`][letta-trajectory], and
-[SkyRL][skyrl-harbor]. Over eight incremental minor revisions (v1.1 through v1.8;
-[RFC 0001 Version History][rfc-0001])[^revisions], ATIF evolved to support root metadata,
-RL token IDs, tool definitions, images, audio, embedded subagents, and context management
-conventions.
+The **Agent Trajectory Interchange Format (ATIF) v2.0** is a newline-delimited JSON (NDJSON) specification for recording autonomous AI agent runs across evaluation, observability, debugging, and training workflows. A single line envelope (`AtifRecord`) supports two document types: an append-only runtime stream (`events`) emitted while an agent runs, and a consolidated multi-trajectory document (`trajectories`) produced by a deterministic consolidation algorithm.
 
-As agent workloads have scaled across these ecosystems, five architectural requirements have
-emerged beyond what further additive patches to v1.x can cleanly address:
+*(Upgrading from ATIF v1.0–v1.8? See [ATIF v1.x to v2.0 Migration](./references/v1-migration.md) and the [v2.0 Changelog](./CHANGELOG.md).)*
 
-1. **Streaming Runtime Capture vs. Consolidated Analytical Steps**
-   - **Limitation**: ATIF v1.x defines a single monolithic JSON document of completed turns
-     (`step_id: 1..N`), whereas modern harnesses (Claude Code, Codex CLI, OpenCode, Pi,
-     Cursor, OpenHands) emit append-only `JSONL` streams where one LLM turn spans multiple
-     records. Producers must either buffer state in memory and rewrite `trajectory.json` on
-     every step—risking data loss on container crashes—or maintain bespoke post-hoc stream
-     converters that drop native event IDs and block live online-RL rollout streaming.[^streaming]
-   - **In v2.0**: ATIF unifies on **NDJSON** with two document types: a stateless, append-only
-     **`events` document (`.atif-e.jsonl`)** mapping 1:1 to native harness events, and a
-     consolidated **`trajectories` document (`.atif.jsonl` / `.atif.tar.zst`)** produced by a
-     deterministic **Stream Consolidation Algorithm** with built-in line-based pagination.
+### Document Types
 
-2. **Non-Linear Execution (Rewinds, Compaction, Background Tasks, & Subagents)**
-   - **Limitation**: Real-world execution often forms a Directed Acyclic Graph (DAG): users
-     rewind prompts, harnesses roll back or fork turns, commands detach into background
-     tasks, subagents run concurrently,[^dag] and context compaction summarizes prior
-     history.[^compaction] In ATIF v1.x, rewinds either corrupt the linear `steps` array or
-     are silently dropped, compaction requires multi-file `continued_trajectory_ref` chains
-     or untyped `step.extra.context_management` conventions, and detached background tasks
-     lack a correlation model.
-   - **In v2.0**: `events` documents record explicit rewind/retry/branch jumps via
-     `TrajectoryEvent.branch` and consolidate each trajectory's `"step"` rows into a linear
-     `1..N` winning path. Rewinds, retries, subagents, forks, and Best-of-$N$ candidates are
-     sibling `"trajectory"` rows in the same `"trajectories"` document, compactions live
-     in-place via `Step.compaction`, and detached tasks correlate via `Action.task_id`.
-
-3. **Split Tool Calls / Observations & Heterogeneous Tool Names**
-   - **Limitation**: Separating `Step.tool_calls` from `Step.observation.results` forces
-     consumers to join on `tool_call_id == source_call_id` and obscures per-call timing,
-     structured/multimodal outputs, and error or cancellation states.[^actions] Meanwhile,
-     every harness uses different tool names and schemas for identical operations (`Bash` vs.
-     `exec_command` vs. `run_terminal_cmd`)—preserved as-is even by cross-harness normalizers
-     like [Letta `@letta-ai/trajectory`][letta-trajectory]—and converters drop provenance
-     across built-in tools, MCP servers, and skills.[^provenance]
-   - **In v2.0**: Each invocation and its output, timing, error status, and approval are
-     colocated on a single `Action` in `Step.actions[]`, paired with an optional strongly
-     typed `Action.canonical` semantic normalization layer
-     ([Canonical Actions Catalog](./references/canonical-actions.md)).
-
-4. **Large Inline Payloads & Local-Filesystem Path Assumptions**
-   - **Limitation**: Multi-megabyte command outputs, full file reads, large system prompts,
-     and binary media create 30–100+ MB files that stall event loops, trigger OOMs during
-     batch ingestion, and force full-file parsing just to inspect summary metadata.[^payloads]
-     Fields such as `trajectory_path` and `ImageSource.path` also assume local filesystem
-     paths rather than remote object stores.[^storage]
-   - **In v2.0**: Oversized fields retain readable inline previews for fast SQL/analytical
-     inspection while recording uniform `truncated_fields` metadata (`original_bytes`,
-     `strategy`, and optional content-addressed `BlobReference` URIs/archives).
-
-5. **Missing Environment Context & Untyped `extra` Fragmentation**
-   - **Limitation**: ATIF v1.x lacks structured fields for discovered skills, MCP servers,
-     subagent templates, system instructions, execution environment (`cwd`, OS, sandbox, VCS
-     state), and universal metrics (`cache_write_tokens`, `reasoning_tokens`,
-     `time_to_first_token_ms`, tool `errored`).[^context] Across 30 Harbor converters and
-     external integrations,[^survey] implementations invented 5 incompatible `metrics.extra`
-     keys for `cache_write_tokens` and 6 `observation.extra` keys for tool error flags.
-   - **In v2.0**: Universal harness, environment, and token/latency fields are promoted into
-     the core schema, and flat `extra` dicts are replaced by reverse-DNS / URL-namespaced
-     `extensions`, top-level `"extension"` rows, and `CanonicalAction.extension` (including
-     official `com.harborframework.{evaluation,rl,v1}` schemas).
-
----
-
-## Document Types & Summary of Changes
-
-### Unified NDJSON Envelope & Two Document Types (`events` & `trajectories`)
-
-ATIF v2.0 defines **two NDJSON document types** sharing one line envelope (`AtifRecord`). Line
-1 of every file is a `type: "meta"` header declaring `schema_version: "ATIF-v2.0"` and
-`document_type: "events" | "trajectories"`:
+Line 1 of every ATIF v2.0 document is a `meta` record declaring `schema_version: "ATIF-v2.0"` and `document_type: "events" | "trajectories"`:
 
 ```mermaid
 flowchart TD
@@ -121,74 +49,117 @@ flowchart TD
     E -->|"Stream Consolidation<br>(single or multi-trajectory)"| T["trajectories (.atif.jsonl / .atif.tar.zst)<br>Line 1: meta (+ optional manifest)<br>Body: session, trajectory, step, extension"]
 ```
 
-| `document_type` | File Extension | Body Row `type`s | Description |
+| `document_type` | File Extension | Body Record `type`s | Purpose |
 | :--- | :--- | :--- | :--- |
-| **`"events"`** | **`.atif-e.jsonl`** | `"event"`, `"extension"` | Append-only JSON Lines stream emitted at runtime, mapping 1:1 to raw harness events. Derived fields (`step_id`, `final_metrics`, union `type` discriminators) are omitted and computed during consolidation. |
-| **`"trajectories"`** | **`.atif.jsonl`**<br>**`.atif.tar.zst`** | `"session"`, `"trajectory"`, `"step"`, `"extension"` | Consolidated NDJSON document holding one or more linear trajectories (roots, subagents, forks, candidates, rewinds) with an optional line-1 `meta.manifest` preview and optional `.atif.tar.zst` archive packaging for offloaded blobs. |
+| `"events"` | `.atif-e.jsonl` | `"event"`, `"extension"` | Append-only stream emitted 1:1 as native harness events occur; derived fields (`step_id`, `final_metrics`, union `type` discriminators) are omitted until consolidation. |
+| `"trajectories"` | `.atif.jsonl`, `.atif.tar.zst` | `"session"`, `"trajectory"`, `"step"`, `"extension"` | Consolidated document holding one or more linear trajectories (roots, subagents, forks, candidates, rewinds) with an optional line-1 `meta.manifest` preview and optional `.atif.tar.zst` blob archive packaging. |
 
-> [!NOTE]
-> **Schema Notation & Companion Projections**: This spec uses **plain interface notation** (`?`
-> for optional fields, `Record<string, T>` for string-keyed JSON objects; no TypeScript utility
-> types like `Partial<>` or `?: never`). JSON Schema, 1:1 wire-compatible `proto3`, and SQL
-> warehouse tables (`sessions`, `trajectories`, `steps`, `actions`, `extension_records`,
-> `blobs`) live in
-> [Wire & Warehouse Projections](./references/projections.md).
+### Minimal Examples
 
-<details>
-<summary><strong>Design Rationale: Two NDJSON Document Types, Nested <code>AtifRecord</code> Envelope, &amp; Derived <code>type</code> Discriminators</strong></summary>
+**Minimal `events` document (`.atif-e.jsonl`):**
 
-- **Why two NDJSON document types with a nested `AtifRecord` envelope instead of separate single-JSON `.atif.json` and `.atif-b.json` formats?**
-  One consolidated NDJSON format (`.atif.jsonl`) serves both single-trajectory and
-  multi-trajectory runs with one parser, instant head-of-file inspection via `meta.manifest`,
-  and $O(1)$-memory sequential reading / line pagination without loading a 100 MB JSON tree.
-  Nesting payloads (`{ type: "step", trajectory_id, step: { ... } }`) reuses every domain type
-  verbatim across NDJSON lines, `meta.manifest`, in-memory SDK documents, and Proto3 `oneof`
-  (`protojson`), avoids key collisions with payload fields, and lets routers filter on `type`,
-  `session_id`, and `trajectory_id` without parsing payloads.
-- **Why combine Proto3 `oneof` unions with a derived `type` discriminator in `"trajectories"` and SQL?**
-  In Proto3 JSON, a `oneof` serializes flat onto its enclosing object (`{ "text": "..." }`,
-  `{ "action_id": "..." }`, `{ "shell_command": { ... } }`), keeping scalar `ContentPart`
-  variants flat like v1.x while grouping multi-attribute variants (`reasoning`, `source`,
-  `CanonicalAction` members). In `"events"`, `type` is optional (inferred from the populated
-  key or `source.media_type`); Stream Consolidation populates `type` in `"trajectories"` and
-  SQL so analytical queries (`WHERE part.type = 'reasoning'`, `GROUP BY canonical.type`) and
-  v1.x consumers can inspect `type` directly.
+```jsonl
+{"type":"meta","meta":{"schema_version":"ATIF-v2.0","document_type":"events","create_time":"2026-10-30T18:00:00Z"}}
+{"type":"event","trajectory_id":"traj-1","event":{"event_id":"ev-0","timestamp":"2026-10-30T18:00:00Z","trajectory":{"agent":{"name":"my-agent","model":{"name":"claude-sonnet-4-5"}}}}}
+{"type":"event","trajectory_id":"traj-1","event":{"event_id":"ev-1","timestamp":"2026-10-30T18:00:01Z","step":{"source":"user","content":[{"text":"Check git status."}]}}}
+{"type":"event","trajectory_id":"traj-1","event":{"event_id":"ev-2","timestamp":"2026-10-30T18:00:02Z","step":{"source":"agent","content":[{"text":"Working tree is clean."}],"stop_reason":"completed"}}}
+```
 
-</details>
+**Minimal `trajectories` document (`.atif.jsonl`):**
 
-### ATIF v1.x → v2.0 At a Glance
+```jsonl
+{"type":"meta","meta":{"schema_version":"ATIF-v2.0","document_type":"trajectories","create_time":"2026-10-30T18:00:03Z"}}
+{"type":"trajectory","trajectory_id":"traj-1","trajectory":{"agent":{"name":"my-agent","model":{"name":"claude-sonnet-4-5"}},"status":"completed","step_count":2,"first_step_id":1}}
+{"type":"step","trajectory_id":"traj-1","step":{"step_id":1,"event_ids":["ev-1"],"source":"user","content":[{"type":"text","text":"Check git status."}]}}
+{"type":"step","trajectory_id":"traj-1","step":{"step_id":2,"event_ids":["ev-2"],"source":"agent","content":[{"type":"text","text":"Working tree is clean."}],"stop_reason":"completed"}}
+```
 
-| Area | ATIF v1.x (`v1.0`–`v1.8`) | ATIF v2.0 (`ATIF-v2.0`) |
+### Reading Paths
+
+| If you are building... | Read | Skip on first pass |
 | :--- | :--- | :--- |
-| **Document Types** | Single consolidated JSON file (`trajectory.json`) | Two NDJSON document types sharing `AtifRecord`: **`events`** (`.atif-e.jsonl`) and **`trajectories`** (`.atif.jsonl` / `.atif.tar.zst`), declared on line 1 (`type: "meta"`) with optional `meta.manifest` |
-| **Session & Branching** | Nested `subagent_trajectories`; multi-file `continued_trajectory_ref`; no rewind/retry model | Optional correlating `session_id` + `"session"` rows; flat `"trajectory"` + `"step"` rows with `parent_trajectory_id`, `parent_reason`, and **Delta vs. Self-Contained** prefix modes |
-| **Step Content** | Separate `reasoning_content: str` and `message: str \| ContentPart[]` | Unified `Step.content: ContentPart[]` interleaving `text`, `reasoning` (with `summarized` / `signature`), `data`, media, and `action` markers |
-| **Context Compaction** | External `continued_trajectory_ref` or `step.extra.context_management` | First-class in-trajectory `Step.compaction: CompactionInfo` (`trigger`, `boundary`, `step_id_start..end`, `summary`, token counts) |
-| **Tool Execution** | Split `Step.tool_calls[]` + `Step.observation.results[]` joined via `source_call_id` | Colocated `Step.actions: Action[]` (`arguments`, `output: ContentPart[]`, `errored`, `approval`, `task_id`, and typed `Action.canonical` schemas) |
-| **Large Payloads** | All text/JSON inline; local `ImageSource.path` | Inline previews (~16 KiB default) + local `truncated_fields` metadata and content-addressed `BlobReference` (`urn:sha256:...` / URI) |
-| **Agent & Environment** | `Agent.{name, version, model_name, tool_definitions}` (OpenAI wrapper) | `AgentMetadata` (`model`, `system_instructions`, `skills`, `mcp_servers`, `subagents`, MCP-aligned `tools`) + `environments: EnvironmentDefinition[]` (`name`, `os`, `cwd`, `sandbox`, `vcs`) |
-| **Metrics & Tokens** | `prompt_tokens`, `completion_tokens`, `cached_tokens`, `cost_usd`, RL token IDs | Inclusive `input_tokens` / `output_tokens`, `cache_read_tokens`, `cache_write_tokens`, `reasoning_tokens`, `cost_source`, TTFT/streaming latency, `granular` slices |
-| **Extensions** | Flat untyped `extra: dict[str, Any]` | Payload-level `extensions`, top-level `"extension"` rows (`{ namespace, data }`), `CanonicalAction.extension`, plus official `com.harborframework.{evaluation,rl,v1}` schemas |
+| **An event producer (harness / adapter)** | [Conventions](#conventions-and-conformance), [Wire Format](#wire-format-and-record-envelope), [Core Data Model](#core-data-model), [Metadata](#harness-environment-and-resource-metadata), [Metrics](#metrics-and-token-accounting), [Events Documents](#events-documents), [Canonical Actions](./references/canonical-actions.md), [Harness Examples](./references/harness-examples.md) | [Branching Modes](#branching-modes), [Stream Consolidation](#stream-consolidation-algorithm), [Archive Layout](#portable-archive-layout) |
+| **A reader, viewer, or SQL analyst** | [Conventions](#conventions-and-conformance), [Wire Format](#wire-format-and-record-envelope), [Core Data Model](#core-data-model), [Metadata](#harness-environment-and-resource-metadata)–[Extensions](#extensions-model), [Trajectories Documents](#trajectories-documents-and-lineage), [Security](#security-considerations), [Projections](./references/projections.md) | [Events Documents](#events-documents), [Stream Consolidation](#stream-consolidation-algorithm) |
+| **A consolidator or SDK** | All normative sections, [Appendix A](#appendix-a-end-to-end-consolidation-walkthrough), [Appendix B](#appendix-b-canonical-in-memory-sdk-model), and the conformance suite | [ATIF v1.x Migration](./references/v1-migration.md) |
+| **A v1.x → v2.0 migrator** | [Conventions](#conventions-and-conformance), [Core Data Model](#core-data-model), [ATIF v1.x Migration](./references/v1-migration.md), [Official Extensions](./references/extensions.md) | [Events Documents](#events-documents), [Stream Consolidation](#stream-consolidation-algorithm) |
 
 ---
 
-## NDJSON Records, Sessions, Trajectories, & Lineage
+## Conventions and Conformance
 
-### `AtifRecord`, `DocumentMeta`, `Session`, `Trajectory`, & In-Memory Model
+### Requirement Keywords
 
-Every line in an ATIF v2.0 file is one of six `AtifRecord` variants. In `"trajectories"`
-documents, every linear path—root run, subagent, fork, Best-of-$N$ candidate, compaction, or
-discarded rewind/retry—is emitted as a `"trajectory"` row followed by its `"step"` rows,
-optionally grouped under a `"session"` row:
+The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be interpreted as described in BCP 14 (RFC 2119, RFC 8174) when, and only when, they appear in all capitals.
+
+Sections explicitly labeled *non-normative* and illustrative examples are informative.
+
+### Conformance Roles
+
+An implementation MAY conform to one or more of the following roles:
+
+- **Event Producer**: Emits valid `"events"` documents (`.atif-e.jsonl`) conforming to [Wire Format](#wire-format-and-record-envelope), [Core Data Model](#core-data-model) (`events` columns), [Metrics](#metrics-and-token-accounting), and [Events Documents](#events-documents).
+- **Trajectories Producer / Consolidator**: Emits valid `"trajectories"` documents (`.atif.jsonl` / `.atif.tar.zst`) conforming to all normative sections of this specification; consolidators MUST additionally implement the [Stream Consolidation Algorithm](#stream-consolidation-algorithm).
+- **Reader**: Parses ATIF documents conforming to [Universal Reader Requirements](#universal-reader-requirements) and [Security Considerations](#security-considerations).
+
+### Companion Documents and Schema Precedence
+
+This document and its normative companion references ([Canonical Actions Catalog](./references/canonical-actions.md), [Official Extension Namespaces](./references/extensions.md), [Wire & Warehouse Projections](./references/projections.md), and [ATIF v1.x to v2.0 Migration](./references/v1-migration.md)) define the authoritative data model, behavioral invariants, and consolidation semantics. [Translating Native Harness Formats](./references/harness-examples.md) is non-normative.
+
+The machine-readable schemas ([`atif-record.schema.json`](./schema/atif-record.schema.json), [`canonical-actions.schema.json`](./schema/canonical-actions.schema.json), [`common-defs.schema.json`](./schema/common-defs.schema.json), [`atif.proto`](./schema/atif.proto), and [`warehouse.sql`](./schema/warehouse.sql)) are co-maintained projections of this specification. Where a prose behavioral or cross-record invariant cannot be expressed in JSON Schema, Protobuf, or SQL alone, this specification governs.
+
+### Notation and Terminology
+
+- **Plain interface notation**: Type synopses use `?` for optional fields and `Record<string, T>` for string-keyed JSON objects.
+- **Closed vs. open vocabularies**: A union without `| string` (such as `ActionExecutor`) is a **closed vocabulary**; a union ending in `| string` (such as `Trajectory.status` or `Step.stop_reason`) is an **open vocabulary** that accepts custom lowercase strings alongside the listed standard values.
+- **Omission vs. `null`**: Optional JSON fields are omitted when absent. Where behavioral rules check for presence (e.g., "non-null" or `original_trajectory_id == null`), omitted fields and explicit `null` values are treated equivalently unless a schema rule specifies omission.
+- **Derived fields**: Fields marked **derived** are computed during [Stream Consolidation](#stream-consolidation-algorithm) and omitted in `"events"` streams.
+
+| Term | Meaning |
+| :--- | :--- |
+| **Record** | One top-level `AtifRecord` JSON object serialized on a single NDJSON line. |
+| **Line** | Physical 1-based line position within an NDJSON file. |
+| **Row** | A table row in the SQL warehouse projection. |
+| **Trunk** | The surviving linear sequence of events for a `trajectory_id` obtained by walking predecessors backward from the final cursor `head` in Phase 1. |
+| **Native step** | A `Step` executed directly in its owning trajectory (`original_trajectory_id` unset/`null`), as opposed to a step copied from an ancestor or merged candidate trajectory. |
+| **Consolidate** | Run the three-phase [Stream Consolidation Algorithm](#stream-consolidation-algorithm) from `"events"` to `"trajectories"`. |
+| **Merge** | Apply the [Field-Level Merge Rules](#field-level-merge-and-folding-rules) when combining multiple event payloads into one target struct. |
+
+### Common Primitive Types
 
 ```ts
-/** Line 1 of `"events"` and `"trajectories"` documents. */
+export type Timestamp = string;
+export type Sha256Urn = `urn:sha256:${string}`;
+export type ArdUrn = `urn:air:${string}` | string;
+export type Modality = "text" | "image" | "audio" | "video" | "document" | string;
+export type Extensions = Record<string, Record<string, unknown>>;
+export type DocumentType = "events" | "trajectories";
+export type AtifRecordType = "meta" | "event" | "session" | "trajectory" | "step" | "extension";
+```
+
+| Type | Format / Constraints |
+| :--- | :--- |
+| `Timestamp` | RFC 3339 UTC timestamp string (e.g., `"2026-10-30T18:00:00Z"`). |
+| `Sha256Urn` | `"urn:sha256:<64-lowercase-hex>"` content digest. |
+| `ArdUrn` | Optional Agentic Resource Discovery URN (`"urn:air:<publisher>:<namespace>:<name>"`; see [Resource Identifiers](#resource-identifiers)). |
+| `Modality` | Open vocabulary; standard values: `"text"`, `"image"`, `"audio"`, `"video"`, `"document"`. |
+| `Extensions` | Map keyed by reverse-DNS domain (e.g., `"com.anthropic.claude-code"`) or RFC 3986 URI, mapping to a JSON object payload. |
+| `DocumentType` | Closed vocabulary: `"events"` or `"trajectories"`. |
+| `AtifRecordType` | Closed vocabulary: `"meta"`, `"event"`, `"session"`, `"trajectory"`, `"step"`, or `"extension"`. |
+
+---
+
+## Wire Format and Record Envelope
+
+### Record Envelope
+
+Every line in an ATIF v2.0 NDJSON file is one of six `AtifRecord` variants discriminated by `type`:
+
+```ts
 export interface MetaRecord {
   type: "meta";
   meta: DocumentMeta;
 }
 
-/** `"events"` body row (`trajectory_id` required except for `event.session`). */
 export interface EventRecord {
   type: "event";
   session_id?: string;
@@ -196,14 +167,12 @@ export interface EventRecord {
   event: TrajectoryEvent;
 }
 
-/** `"trajectories"` body row and `meta.manifest.sessions` entry. */
 export interface SessionRecord {
   type: "session";
   session_id: string;
   session: Session;
 }
 
-/** `"trajectories"` body row and `meta.manifest.trajectories` entry. */
 export interface TrajectoryRecord {
   type: "trajectory";
   session_id?: string;
@@ -211,7 +180,6 @@ export interface TrajectoryRecord {
   trajectory: Trajectory;
 }
 
-/** `"trajectories"` body row (`session_id` matches the parent trajectory). */
 export interface StepRecord {
   type: "step";
   session_id?: string;
@@ -219,7 +187,6 @@ export interface StepRecord {
   step: Step;
 }
 
-/** `"events"` and `"trajectories"` body row for out-of-band extensions. */
 export interface ExtensionRecord {
   type: "extension";
   session_id?: string;
@@ -236,399 +203,358 @@ export type AtifRecord =
   | ExtensionRecord;
 ```
 
+**Envelope identifier rules:**
+
+1. `trajectory_id` is required on `TrajectoryRecord`, `StepRecord`, and every `EventRecord` except those carrying `event.session` (which require `session_id` and omit `trajectory_id`).
+2. `trajectory_id` MUST be unique per trajectory within a file and SHOULD be globally unique. On a root trajectory, `trajectory_id` MAY equal `session_id`.
+3. `session_id` is an optional correlating identifier; standalone runs MAY omit `session_id` and `SessionRecord` lines.
+4. Child trajectories sharing a `session_id` MUST use distinct `trajectory_id`s (for example, a native subagent ID or `"<root_id>#rewind-1"`).
+5. On `StepRecord`, `session_id` (when present) MUST match the parent trajectory's `session_id`.
+6. Envelope identifiers (`session_id`, `trajectory_id`) are authoritative on the wire.
+
+### Document Header and Manifest
+
 ```ts
 export interface DocumentMeta {
   schema_version: "ATIF-v2.0";
-  document_type: "events" | "trajectories";
-  create_time?: Timestamp;               // RFC 3339 UTC timestamp when this document was written
-  manifest?: DocumentManifest;           // Optional directory preview of sessions & trajectories in this file
+  document_type: DocumentType;
+  create_time?: Timestamp;
+  manifest?: DocumentManifest;
   extensions?: Extensions;
 }
 
 export interface DocumentManifest {
-  sessions?: SessionRecord[];            // Wire `SessionRecord` shape; all inner `session` fields optional
-  trajectories?: TrajectoryRecord[];     // Wire `TrajectoryRecord` shape; all inner `trajectory` fields optional
+  sessions?: SessionRecord[];
+  trajectories?: TrajectoryRecord[];
 }
+```
 
+| Field | Type | Requirement | Description |
+| :--- | :--- | :--- | :--- |
+| `schema_version` | `"ATIF-v2.0"` | Required | Declares the ATIF wire version. |
+| `document_type` | `DocumentType` | Required | `"events"` or `"trajectories"`. |
+| `create_time` | `Timestamp` | Optional | RFC 3339 UTC timestamp when the document was written. |
+| `manifest` | `DocumentManifest` | Optional (`trajectories` only) | Head-of-file directory preview of sessions and trajectories in this file. |
+| `extensions` | `Extensions` | Optional | Document-level extension metadata. |
+
+**`meta.manifest` preview rules:**
+
+- Entries use the `SessionRecord` and `TrajectoryRecord` shapes with all inner `session` and `trajectory` fields optional (including `trajectory.agent`).
+- Producers SHOULD include lightweight summary fields (`agent: { name, role, model: { name } }`, lineage fields, `title`, `status`, `step_count`, `first_step_id`, `start_time`, `end_time`, `final_metrics`, `tags`) and SHOULD omit large catalogs (`system_instructions`, `tools`, `skills`, `mcp_servers`, `subagents`).
+- Body records remain authoritative during full hydration.
+
+### Extension Payload
+
+```ts
+export interface ExtensionPayload {
+  namespace: string;
+  data: Record<string, unknown>;
+}
+```
+
+`namespace` is a reverse-DNS domain (e.g., `"com.example.annotation"`) or RFC 3986 URI identifying the schema of `data`.
+
+### Universal Reader Requirements
+
+1. **Header dispatch**: Readers MUST dispatch on line 1 `meta.document_type`, never on filename extension alone. For mixed v1.x/v2.0 inputs, apply the 4-step format detection procedure in [ATIF v1.x to v2.0 Migration](./references/v1-migration.md#format-detection).
+2. **Compression**: Readers SHOULD transparently decompress `.zst` and `.gz` wrappers.
+3. **Line length floor**: Readers MUST support single NDJSON lines of **at least 16 MiB** (for large `agent.tools` catalogs).
+4. **Forward compatibility**: Readers MUST ignore unknown fields on `DocumentMeta`, MUST skip records with unknown `type` values, and SHOULD accept any `ATIF-v2.x` minor version.
+5. **Lenient `protojson` integer parsing**: Canonical ATIF JSON writers MUST emit integer fields (`step_id`, `input_tokens`, `size_bytes`, `original_bytes`, `seq`, etc.) as JSON numbers. Because standard Proto3 `protojson` encoders quote `int64` values as decimal strings (e.g., `"1200"`), readers SHOULD leniently accept decimal-string representations for integer fields.
+
+---
+
+## Core Data Model
+
+```mermaid
+flowchart LR
+    M["MetaRecord (line 1)<br>DocumentMeta + manifest?"]
+    S["SessionRecord (optional)<br>session_id"] --> T["TrajectoryRecord (1..N)<br>trajectory_id · parent_*"]
+    T --> ST["StepRecord (0..N)<br>step_id 1..N"]
+    ST --> CP["ContentPart[]<br>text · reasoning · data · media · action"]
+    ST --> AC["Action[]<br>call · output · canonical?"]
+    EXT["ExtensionRecord (0..N)<br>namespace + data"]
+```
+
+### Session
+
+A `Session` groups one or more related trajectories under a shared `session_id`:
+
+```ts
 export interface Session {
   title?: string;
-  start_time?: Timestamp;                // Derived earliest trajectory `start_time` in this file
-  end_time?: Timestamp;                  // Derived latest trajectory `end_time` in this file
-  final_metrics?: FinalMetrics;          // Derived rollup across native steps (`original_trajectory_id == null`) in this file
+  start_time?: Timestamp;
+  end_time?: Timestamp;
+  final_metrics?: FinalMetrics;
   tags?: string[];
   extensions?: Extensions;
 }
+```
+
+| Field | Type | Origin | Description |
+| :--- | :--- | :--- | :--- |
+| `title` | `string` | Optional | Human-readable session title. |
+| `start_time` | `Timestamp` | Derived | Earliest trajectory `start_time` in this file. |
+| `end_time` | `Timestamp` | Derived | Latest trajectory `end_time` in this file. |
+| `final_metrics` | `FinalMetrics` | Derived | Rollup across native steps (`original_trajectory_id == null`) in this file. |
+| `tags` | `string[]` | Optional | Free-form session tags. |
+| `extensions` | `Extensions` | Optional | Namespaced session metadata. |
+
+### Trajectory
+
+Every linear execution path—root run, subagent, fork, Best-of-N candidate, compaction run, or discarded rewind/retry—is represented as a `Trajectory`:
+
+```ts
+export type TrajectoryLineageReason =
+  | "subagent"
+  | "fork"
+  | "rewind"
+  | "retry"
+  | "candidate"
+  | "compaction"
+  | "continuation"
+  | "other"
+  | string;
 
 export interface Trajectory {
-  // Parent & transitive lineage (populated on subagents, forks, candidates, compactions, and rewinds)
   parent_trajectory_id?: string;
   parent_reason?: TrajectoryLineageReason;
   parent_event_id?: string;
   parent_action_id?: string;
-  parent_step_id?: number;               // Derived 1-based step_id in `parent_trajectory_id`
-  parent_steps_excluded?: boolean;       // True in Delta Mode when unchanged shared prefix steps are omitted
-  ancestor_trajectory_ids?: string[];    // Derived `[root_id, ..., parent_trajectory_id]` (`[]` on root)
-  child_trajectory_ids?: string[];       // Derived direct child `trajectory_id`s in chronological order
-  trajectory_depth?: number;             // Derived 0-based tree depth (`0` on root)
+  parent_step_id?: number;
+  parent_steps_excluded?: boolean;
+  ancestor_trajectory_ids?: string[];
+  child_trajectory_ids?: string[];
+  trajectory_depth?: number;
 
-  // Lifecycle & timing
-  version?: string;                      // Optional revision/etag when updated over time
+  version?: string;
   title?: string;
   status?: "running" | "completed" | "failed" | "cancelled" | "max_steps" | "context_limit" | string;
-  error?: string;                        // Fatal trajectory-level error when `status` is `"failed"` or `"cancelled"`
-  start_time?: Timestamp;                // Derived earliest step `start_time` (or earliest event timestamp)
-  end_time?: Timestamp;                  // Derived latest step/action timestamp
+  error?: string;
+  start_time?: Timestamp;
+  end_time?: Timestamp;
 
-  // Harness configuration & rollups
-  agent?: AgentMetadata;                 // Required on full `"trajectory"` body rows; optional in `meta.manifest`
-  environments?: EnvironmentDefinition[];// Runtime environments/sandboxes (`environments[0]` is default when `Action.environment_name` is omitted)
-  step_count?: number;                   // Derived count of serialized `"step"` rows for this trajectory
-  first_step_id?: number;                // Derived starting `step_id` (`1` by default; `K` or `K+1` in Delta; omitted if `step_count == 0`)
-  final_metrics?: FinalMetrics;          // Derived rollup across serialized `"step"` rows (and `Action.metrics`)
+  agent?: AgentMetadata;
+  environments?: EnvironmentDefinition[];
+  step_count?: number;
+  first_step_id?: number;
+  final_metrics?: FinalMetrics;
 
   tags?: string[];
   notes?: string;
   truncated_fields?: Record<string, TruncationInfo>;
   extensions?: Extensions;
 }
-
-export interface ExtensionPayload {
-  namespace: string;                     // Reverse-DNS domain or RFC 3986 URI (e.g. `"com.example.annotation"`)
-  data: Record<string, unknown>;         // Schema-governed JSON object payload
-}
-
-export type TrajectoryLineageReason =
-  | "subagent"      // Delegated subagent (fresh context or context-forked prefix)
-  | "fork"          // User/harness session fork (e.g., `claude --fork-session`, Codex `forked_from_id`)
-  | "rewind"        // Discarded multi-step or user-initiated backtrack/rewind branch
-  | "retry"         // Discarded single-step agent generation retry/regeneration branch
-  | "candidate"     // Best-of-N / Battle Mode candidate arm (fan-out or winner merge-back)
-  | "compaction"    // Captured trajectory invoked specifically to summarize/compact context
-  | "continuation"  // Context rollover continuation (ATIF v1.x `continued_trajectory_ref` / `is_copied_context`)
-  | "other"
-  | string;
 ```
 
-**Canonical In-Memory Document Model (Non-Wire SDK Representation)**:
-To give SDKs and agents one predictable in-memory shape without adding "omit on wire" fields
-to `TrajectoryRecord`, `Trajectory`, or `Session`, ATIF v2.0 defines two logical document types
-plus `TrajectoryWithSteps` (serializers MUST still emit NDJSON `AtifRecord` lines, never a
-single nested JSON document):
-
-```ts
-export interface TrajectoryWithSteps {
-  type: "trajectory";
-  session_id?: string;
-  trajectory_id: string;
-  trajectory: Trajectory;
-  steps: Step[];
-}
-
-export interface AtifEventsDocument {
-  meta: DocumentMeta;
-  events: EventRecord[];
-  extensions?: ExtensionRecord[];
-}
-
-export interface AtifTrajectoriesDocument {
-  meta: DocumentMeta;
-  sessions?: SessionRecord[];
-  trajectories: TrajectoryWithSteps[];
-  extensions?: ExtensionRecord[];
-}
-```
-
-**Normative invariants:**
-- **Required `trajectory_id` vs. optional `session_id`**: `trajectory_id` is required, MUST be
-  unique within a file, and SHOULD be globally unique. `session_id` is an **optional correlating
-  ID** (matching ATIF v1.7–v1.8); standalone runs may omit `session_id` and `"session"` rows.
-  Child trajectories sharing a `session_id` MUST use distinct `trajectory_id`s (e.g. native
-  subagent ID or `"<root_id>#rewind-1"`). Envelope IDs are authoritative on the wire.
-- **`"trajectories"` ordering & self-containment**: Line 1 MUST be `"meta"` (no second `"meta"`
-  row). When present, a `"session"` row MUST precede all `"trajectory"` rows for that
-  `session_id`; every `"trajectory"` row MUST precede all `"step"` rows for its `trajectory_id`;
-  `parent_steps_excluded: true` is valid **only when** `parent_trajectory_id` appears earlier in
-  the same file; and `"step"` rows for each `trajectory_id` MUST appear in strictly contiguous
-  ascending `step_id` order (`step_id[i] == step_id[i-1] + 1`, starting at `first_step_id`, or
-  `step_count: 0` with zero `"step"` rows). Writers SHOULD emit each trajectory's `"step"` rows
-  immediately after its `"trajectory"` row (roots first, children in chronological topological
-  order) and populate `meta.manifest` on batch writes; readers MUST still handle interleaved
-  `"step"` rows. `"extension"` rows MAY appear anywhere after line 1 (commonly appended at EOF).
-- **`meta.manifest` preview rules**: Entries use `SessionRecord` / `TrajectoryRecord` shapes
-  with all inner fields optional (including `trajectory.agent`). Producers SHOULD include
-  lightweight summary fields (`agent: { name, role, model: { name } }`, lineage, `title`,
-  `status`, `step_count`, `first_step_id`, `start_time`, `end_time`, `final_metrics`, `tags`)
-  and SHOULD omit heavy catalogs (`system_instructions`, `tools`, `skills`, `mcp_servers`,
-  `subagents`). Body rows remain authoritative during full hydration.
-- **Transitive lineage & scoped rollups**: Root trajectories set `ancestor_trajectory_ids: []`,
-  so `ancestor_trajectory_ids[0] ?? trajectory_id` yields the root ID without recursive SQL.
-  `Trajectory.final_metrics` sums that trajectory's serialized `"step"` rows;
-  `Session.final_metrics` sums only native steps (`original_trajectory_id == null`) present in
-  the file (partial exports may contain lineage pointers referencing external files).
-- **Universal NDJSON reader rules**: Readers MUST dispatch on line 1 `meta.document_type` (not
-  filename alone), SHOULD transparently decompress `.zst`/`.gz`, MUST support lines **≥ 16 MiB**
-  (for large `agent.tools` schemas), MUST ignore unknown `meta` fields, MUST skip unknown row
-  `type`s, and SHOULD accept any `ATIF-v2.x` minor version.
-
-<details>
-<summary><strong>Changes from ATIF v1.x: <code>Trajectory</code> Field-by-Field Comparison</strong></summary>
-
-| ATIF v1.x Field | Status in v2.0 | ATIF v2.0 Field / Location | Rationale |
+| Field | Type | Requirement / Origin | Description |
 | :--- | :--- | :--- | :--- |
-| `schema_version` (`"ATIF-v1.0"`..`"ATIF-v1.8"`) | **Moved to `meta`** | Line 1 `DocumentMeta.schema_version: "ATIF-v2.0"` + `document_type` | Declared once on line 1 of every NDJSON file instead of repeated on every record. |
-| `session_id` (required v1.0, optional v1.7+) | **Kept (Optional)** | Envelope `session_id?: string` (+ optional `SessionRecord`) | Optional correlating ID matching v1.7–v1.8; standalone runs omit it, multi-trajectory runs share it. |
-| `trajectory_id` (v1.7, optional) | **Kept (Required)** | Envelope `trajectory_id: string` | Required primary key per trajectory (unique per file; may equal `session_id` on root). |
-| `agent` (`Agent`) | **Kept & Expanded** | `Trajectory.agent: AgentMetadata` | Expanded with `model`, `system_instructions`, `skills`, `mcp_servers`, `subagents`, and MCP-aligned `tools`. |
-| `steps` (`Step[]`) | **Changed (NDJSON)** | Individual `"step"` (`StepRecord`) lines (hydrated into `TrajectoryWithSteps.steps`) | Enables $O(1)$-memory streaming reads and line pagination while keeping contiguous `step_id`s. |
-| `notes` | **Kept** | `Trajectory.notes?: string` | Preserved verbatim for human/harness remarks. |
-| `final_metrics` (`FinalMetrics`) | **Kept & Expanded** | `Trajectory.final_metrics` (and `Session.final_metrics`) | Expanded with cache write, reasoning, LLM calls, duration, and `cost_source`. |
-| `continued_trajectory_ref` (v1.0) | **Removed** | In-trajectory `Step.compaction` (or `parent_reason: "continuation"`) | Compaction lives inside a trajectory's steps, eliminating multi-file continuation chains. |
-| `subagent_trajectories` (v1.7) | **Changed** | Flattened sibling `"trajectory"` + `"step"` rows + `parent_*` pointers | Eliminates deep JSON nesting and unifies subagents, forks, candidates, compactions, and rewinds. |
-| `extra` (`dict[str, Any]`) | **Changed** | Payload-level `extensions?: Extensions` (+ top-level `"extension"` rows) | Reverse-DNS / URL namespaces (unpromoted v1 keys preserved under `com.harborframework.v1`). |
-| *(New in v2.0)* | **Added** | `DocumentMeta` (`manifest`), `Session`, `ExtensionRecord`, `first_step_id`, `parent_*`, `ancestor_trajectory_ids`, `child_trajectory_ids`, `trajectory_depth`, `status`, `error`, `start_time`, `end_time`, `step_count`, `title`, `version`, `tags`, `environments`, `truncated_fields` | Head-of-file directory previews, session rollups, appendable extensions, lineage, and universal lifecycle/environment metadata. |
+| `parent_trajectory_id` | `string` | Optional | Immediate parent `trajectory_id` for non-root trajectories. |
+| `parent_reason` | `TrajectoryLineageReason` | Optional | Relationship to `parent_trajectory_id`. |
+| `parent_event_id` | `string` | Optional | Event ID on the parent where this trajectory branched. |
+| `parent_action_id` | `string` | Optional | Action ID on the parent that spawned this trajectory. |
+| `parent_step_id` | `number` | Derived | 1-based `step_id` in `parent_trajectory_id` containing the branch/spawn point. |
+| `parent_steps_excluded` | `boolean` | Optional | `true` in Delta Mode when unchanged shared prefix steps are omitted (see [Branching Modes](#branching-modes)). |
+| `ancestor_trajectory_ids` | `string[]` | Derived | Transitive ancestry `[root_id, ..., parent_trajectory_id]`; `[]` on root trajectories. |
+| `child_trajectory_ids` | `string[]` | Derived | Direct child `trajectory_id`s in chronological order. |
+| `trajectory_depth` | `number` | Derived | 0-based tree depth (`0` on root trajectories). |
+| `version` | `string` | Optional | Revision or etag when a trajectory record is updated over time. |
+| `status` | `string` | Optional / Derived | Open vocabulary: `"running"`, `"completed"`, `"failed"`, `"cancelled"`, `"max_steps"`, `"context_limit"`. |
+| `error` | `string` | Optional | Fatal trajectory-level error when `status` is `"failed"` or `"cancelled"`. |
+| `start_time` | `Timestamp` | Derived | Earliest step `start_time` (or earliest event timestamp). |
+| `end_time` | `Timestamp` | Derived | Latest step or action timestamp (falls back to event timestamp only when `step_count == 0`). |
+| `agent` | `AgentMetadata` | Required on full `trajectory` body records; optional in `meta.manifest` | Agent harness and model configuration. |
+| `environments` | `EnvironmentDefinition[]` | Optional | Runtime environments/sandboxes (`environments[0]` is default when `Action.environment_name` is omitted). |
+| `step_count` | `number` | Derived | Count of serialized `StepRecord` lines for this trajectory. |
+| `first_step_id` | `number` | Derived | Starting `step_id` (`1` by default; `K` or `K+1` in Delta Mode; omitted when `step_count == 0`). |
+| `final_metrics` | `FinalMetrics` | Derived | Rollup across serialized `StepRecord` lines (and tool-internal `Action.metrics`). |
+| `tags`, `notes` | `string[]`, `string` | Optional | Free-form labels and human/harness remarks. |
+| `truncated_fields`, `extensions` | maps | Optional | Local truncation metadata and namespaced extensions. |
 
-</details>
+**`TrajectoryLineageReason` standard values (open vocabulary):**
 
-### Branching Lineage: Delta Mode vs. Self-Contained Mode
+| Value | Meaning |
+| :--- | :--- |
+| `"subagent"` | Delegated subagent (fresh context or context-forked prefix). |
+| `"fork"` | User- or harness-initiated session fork. |
+| `"rewind"` | Discarded multi-step or user-initiated backtrack/rewind branch. |
+| `"retry"` | Discarded single-step agent generation retry/regeneration branch. |
+| `"candidate"` | Best-of-N candidate arm (fan-out or winner merge-back). |
+| `"compaction"` | Captured trajectory invoked specifically to summarize/compact context. |
+| `"continuation"` | Context rollover continuation from a prior trajectory. |
+| `"other"` | Any other parent-child trajectory relationship. |
 
-Representing every branch as a `"trajectory"` row + `"step"` rows eliminates any separate
-`branches[]` array while keeping `(trajectory_id, step_id)` unique across NDJSON, Protobuf, and
-SQL. To balance **compactness** on frequent rewinds with **self-contained completeness** on
-standalone exports, context-continuing branches (`"rewind"`, `"retry"`, `"candidate"`,
-`"fork"`, `"continuation"`) support two prefix modes:
+### Step
 
-- **Delta Mode (`parent_steps_excluded: true` — Valid only when `parent_trajectory_id` appears earlier in the same file; default for in-session `"rewind"`, `"retry"`, and `"candidate"`)**:
-  Omits the unchanged leading prefix steps `1..p` that neither folded a branch event nor were
-  updated on the parent after `parent_event_id`, normally starting at
-  **`first_step_id = parent_step_id + 1`** (or `step_count: 0` if no step diverged or was
-  added). When `parent_event_id` falls mid-step (or a late parent update mutates a prefix step
-  after `parent_event_id`), the child retains its fork-consistent step from the first diverged
-  index (e.g. Step `K`, containing pre-fork + branch events, never post-fork parent events).
-- **Self-Contained Mode (`parent_steps_excluded` omitted/`false` — Required when the parent is NOT in the same file, e.g. standalone session forks, or via `--self-contained`)**:
-  Includes every step from `1`, stamping steps opened at or before `parent_event_id` with
-  `original_trajectory_id: "<parent_id>"` and `original_trajectory_reason`.
-- **Step ID Invariance**: Both modes number steps by replaying from Step `1`, and omitted Delta
-  prefix steps are identical to the parent's finalized steps at the same `step_id`. Delta →
-  Self-Contained conversion is therefore an exact prefix splice (`1 .. first_step_id - 1`, or
-  `1 .. (parent_step_id ?? 0)` when `step_count == 0`) that never leaks post-fork parent
-  updates or renumbers any `step_id` / `parent_step_id` / `step_id_start` reference.
-
-| Topology | `parent_reason` | `parent_steps_excluded` & Shared Prefix | Starting `step_id` (`first_step_id`) |
-| :--- | :--- | :--- | :--- |
-| **Root Trajectory** | `undefined` | Omitted (N/A) | `1` (`1..N`) |
-| **Delegated Subagent / Compaction** | `"subagent"` \| `"compaction"` | Omitted for fresh context (or `false` with `original_trajectory_reason` when context-forked) | `1` (`1..M`) |
-| **In-Session Rewind / 1-Step Retry** | `"rewind"` \| `"retry"` | **`true` by default** when parent is in the same file (or `false` via `--self-contained`) | **`parent_step_id + 1`** (or `parent_step_id` on mid-step fork) in Delta; `1` in Self-Contained |
-| **Best-of-$N$ ("Battle Mode") Candidate Arm** | `"candidate"` | **`true` when parent is in the same file** or **`false` in standalone export**. Merged winning suffix steps on the main trajectory carry `original_trajectory_id: "cand-2"` and `original_trajectory_reason: "candidate"`. | **`parent_step_id + 1`** (or `parent_step_id` on mid-step fork) in Delta; `1` in Self-Contained |
-| **Standalone Session Fork** (`claude --fork-session`, Codex `forked_from_id`) | `"fork"` | **`false` (copied by default)** (`original_trajectory_id` + `original_trajectory_reason: "fork"`) so standalone `.atif.jsonl` is 100% self-contained | `1` (`1..K` copied + `K+1..N` new) |
-| **Context Continuation** (ATIF v1.x `is_copied_context`) | `"continuation"` | `false` — upgraded v1.x `is_copied_context: true` steps set `original_trajectory_id` (or `"(unknown)"`) and `original_trajectory_reason: "continuation"` | `1` (`1..N`) |
-
-<details>
-<summary><strong>Design Rationale: Unified <code>Trajectory</code> Branching &amp; Eliminating Multi-File Continuations</strong></summary>
-
-- **Why model rewinds and retries as sibling `"trajectory"` rows instead of a `branches[]` array or inline discarded steps?**
-  Downstream consumers (SFT/RL builders, verifiers, viewers) iterate linearly over contiguous
-  `step_id`s. Inline rewound steps create `step_id` gaps on the winning path, while a separate
-  `branches[]` type duplicates `Trajectory` and forces a 3-column `(trajectory_id, branch_id,
-  step_id)` SQL key. Sibling `"trajectory"` rows with Delta Mode keep each trajectory linear
-  (`1..N`), avoid prefix duplication, and keep `(trajectory_id, step_id)` universally unique.
-- **Why flatten `subagent_trajectories` and remove `continued_trajectory_ref`?**
-  Flattening v1.7's recursive `subagent_trajectories` into top-level `"trajectory"` and `"step"`
-  rows with `parent_*` pointers avoids deep JSON trees and queries subagents, forks, candidates,
-  and rewinds uniformly. Context compaction now lives in-trajectory via `Step.compaction`, and
-  the v1.x upgrader ([Migration & Extensions Reference](./references/migration-and-extensions.md)) concatenates `continued_trajectory_ref` chains automatically.
-
-</details>
-
----
-
-## Steps, Multimodal Content, & Context Compaction
-
-### `Step` and `ContentPart`
-
-Each `Step` in a consolidated `"trajectories"` document represents one logical turn: a `user`
-message, a `system` instruction or compaction event, or a single `agent` LLM inference call
-together with the actions it invoked. `Step.content` preserves the exact interleaved sequence
-in which reasoning blocks, text, structured data, media, and action invocations occurred:
+Each `Step` represents one logical turn: a `user` message, a `system` instruction or compaction event, or a single `agent` LLM inference call together with the actions it invoked.
 
 ```ts
 export interface Step {
-  step_id?: number;                      // Derived 1-based step index in `"trajectories"`; omitted in `"events"`
-  event_ids?: string[];                  // Ordered `"events"` `event_id`s folded into this step (`event_ids[0]` is primary)
-  original_trajectory_id?: string;       // Source `trajectory_id` when copied (or `"(unknown)"` from v1.x `is_copied_context`)
+  step_id?: number;
+  event_ids?: string[];
+  original_trajectory_id?: string;
   original_trajectory_reason?: TrajectoryLineageReason;
 
   source: "system" | "user" | "agent";
-  agent_name?: string;                   // Step-level override when different from `Trajectory.agent.name` (matches `agent.subagents[].name`)
+  agent_name?: string;
   start_time?: Timestamp;
   end_time?: Timestamp;
-  model?: ModelMetadata;                 // Step-level override when different from `Trajectory.agent.model`
+  model?: ModelMetadata;
   compaction?: CompactionInfo;
 
-  content?: ContentPart[];               // Interleaved multimodal blocks & `{ action_id }` invocation markers
-  actions?: Action[];                    // Actions executed during this step
-  citations?: Citation[];                // Cited sources/grounding references returned for this step
+  content?: ContentPart[];
+  actions?: Action[];
+  citations?: Citation[];
 
-  error?: string;                        // Populated when the step itself failed (`stop_reason: "errored"`)
+  error?: string;
   stop_reason?: "completed" | "tools" | "cancelled" | "max_tokens" | "timed_out" | "errored" | "refused" | string;
 
   metrics?: StepMetrics;
   truncated_fields?: Record<string, TruncationInfo>;
   extensions?: Extensions;
 }
+```
 
+| Field | Type | `events` | `trajectories` | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `step_id` | `number` | Omitted | Required, derived | 1-based step index within the trajectory. |
+| `event_ids` | `string[]` | Omitted | Optional, derived | Ordered `event_id`s folded into this step (`event_ids[0]` is primary). |
+| `original_trajectory_id` | `string` | Omitted | Optional, derived | Source `trajectory_id` when copied (or `"(unknown)"` when origin ID is unavailable). |
+| `original_trajectory_reason` | `TrajectoryLineageReason` | Omitted | Optional, derived | Reason this step was copied from `original_trajectory_id`. |
+| `source` | `"system"` \| `"user"` \| `"agent"` | Required | Required | Closed vocabulary identifying who produced the step. |
+| `agent_name` | `string` | Optional | Optional | Step-level override when different from `Trajectory.agent.name` (matches `agent.subagents[].name`). |
+| `start_time`, `end_time` | `Timestamp` | Optional | Optional / Derived | Turn start and end timestamps. |
+| `model` | `ModelMetadata` | Optional | Optional | Step-level model override when different from `Trajectory.agent.model`. |
+| `compaction` | `CompactionInfo` | Optional | Optional | Context compaction metadata when this step compacts, truncates, or injects context. |
+| `content` | `ContentPart[]` | Optional | Optional | Interleaved multimodal blocks and `{ type: "action", action_id }` invocation markers in exact generation order. |
+| `actions` | `Action[]` | Optional | Optional | Actions executed during this step. |
+| `citations` | `Citation[]` | Optional | Optional | Cited sources or grounding references returned for this step. |
+| `error` | `string` | Optional | Optional | Error description when the step itself failed (`stop_reason: "errored"`). |
+| `stop_reason` | `string` | Optional | Optional | Open vocabulary: `"completed"`, `"tools"`, `"cancelled"`, `"max_tokens"`, `"timed_out"`, `"errored"`, `"refused"`. |
+| `metrics` | `StepMetrics` | Optional | Optional | Token, cost, latency, and RL token-ID metrics for this step. |
+| `truncated_fields`, `extensions` | maps | Optional | Optional | Local truncation metadata and namespaced extensions. |
+
+**Copied step accounting:**
+
+- Provenance is tracked at `Step` granularity. Native steps omit `original_trajectory_id`.
+- Copied prefix or merged candidate steps retain their `metrics` (included in `Trajectory.final_metrics`), while `Session.final_metrics` and SFT/RL consumers filter on `original_trajectory_id == null`.
+- On a mid-step fork, attributing the re-emitted Step `K` to the trajectory that opened it (`original_trajectory_id: "<parent_id>"`) counts the pre-fork LLM inference once in `Session.final_metrics`, while any new branch generation opens a native Step `K+1` (see [Phase 2 rules `R8`/`R10`](#phase-2-turn-state-machine-and-event-folding)).
+
+### Multimodal Content and Citations
+
+```ts
 export type ContentPartType =
   | "text" | "reasoning" | "data" | "image" | "audio" | "video" | "document" | "action";
 
-// Exactly one payload field (`text`, `reasoning`, `data`, `source`, or `action_id`) is populated, matching `type`.
 export interface ContentPart {
-  type?: ContentPartType;                // Optional in `"events"`; populated in `"trajectories"` & SQL
-  text?: string;                         // When `type == "text"`
-  reasoning?: ReasoningContent;          // When `type == "reasoning"`
-  data?: Record<string, unknown>;        // When `type == "data"`
-  source?: MediaSource;                  // When `type` is `"image"`, `"audio"`, `"video"`, or `"document"`
-  action_id?: string;                    // When `type == "action"`
+  type?: ContentPartType;
+  text?: string;
+  reasoning?: ReasoningContent;
+  data?: Record<string, unknown>;
+  source?: MediaSource;
+  action_id?: string;
   truncated_fields?: Record<string, TruncationInfo>;
   extensions?: Extensions;
 }
 
 export interface ReasoningContent {
-  text?: string;                         // Verbatim CoT, or summary when `summarized: true`; omitted when provider-redacted
-  summarized?: boolean;                  // True for provider/model summaries (e.g. OpenAI `summary_text`)
-  signature?: string;                    // Verification signature or encrypted payload (Anthropic `signature`, OpenAI `encrypted_content`)
+  text?: string;
+  summarized?: boolean;
+  signature?: string;
 }
 
 export interface MediaSource extends BlobReference {
-  duration_sec?: number;                 // Optional audio/video duration in seconds (from ATIF v1.8 `AudioSource`)
+  duration_sec?: number;
 }
 
 export interface Citation {
-  uri?: string;                          // RFC 3986 URI (web URL, file URI, or datastore/document URI)
-  title?: string;                        // Page title, document title, or filename
-  cited_text?: string;                   // Optional quoted excerpt from the cited source
-  extensions?: Extensions;               // Provider-specific span offsets, PDF pages, or confidence scores
+  uri?: string;
+  title?: string;
+  cited_text?: string;
+  extensions?: Extensions;
 }
 ```
 
-**Normative invariants:**
-- **Copied step accounting**: Provenance is tracked at `Step` granularity. Native steps omit
-  `original_trajectory_id`; copied prefix or candidate merge-back steps retain their `metrics`
-  (included in `Trajectory.final_metrics`), while SFT/RL builders and `Session.final_metrics`
-  filter on `original_trajectory_id == null`. On a mid-step fork, attributing re-emitted Step
-  `K` to the trajectory that opened it (`original_trajectory_id: "<parent_id>"`) counts the
-  pre-fork LLM inference once in `Session.final_metrics`, while any new branch generation opens
-  a native Step `K+1` via `R8`/`R10`.
-- **Union `type` & Proto3 `oneof` wire mapping**: `ContentPart` maps 1:1 to a Proto3 `oneof`
-  (`text | reasoning | data | source | action_id`). In `"events"`, `type` is optional (inferred
-  from the populated key or `source.media_type`); Stream Consolidation populates `type` in
-  `"trajectories"` and SQL.
+**`ContentPart` union & discriminator rules:**
 
-### Context Compaction (`CompactionInfo`)
+- Exactly one payload field (`text`, `reasoning`, `data`, `source`, or `action_id`) MUST be populated on each `ContentPart`, matching `type`:
+  - `"text"` → `text`
+  - `"reasoning"` → `reasoning` (`text` is verbatim CoT or a summary when `summarized: true`, and is omitted when provider-redacted; `signature` holds a verification signature or encrypted payload)
+  - `"data"` → `data` (structured JSON object)
+  - `"image"`, `"audio"`, `"video"`, `"document"` → `source` (`MediaSource`, extending `BlobReference` with optional `duration_sec` for audio/video)
+  - `"action"` → `action_id` (interleaved invocation marker referencing an `Action` in `Step.actions[]`)
+- `ContentPart` maps 1:1 to a Proto3 `oneof` (`text | reasoning | data | source | action_id`).
+- `ContentPart.type` is optional in `"events"` documents (inferred from the populated key or `source.media_type` prefix `image/*`, `audio/*`, `video/*`, or `"document"` otherwise) and MUST be populated in `"trajectories"` documents and SQL projections.
+- `Citation.uri` is an RFC 3986 URI (web URL, file URI, or document URI); `title`, `cited_text`, and provider-specific `extensions` (such as span offsets, PDF pages, or confidence scores) are optional.
 
-When an agent or harness compacts, truncates, or injects context mid-trajectory, it records a
-`Step` with `compaction: CompactionInfo` (plus `metrics` if an LLM call generated the summary):
+### Context Compaction
+
+When an agent or harness compacts, truncates, or injects context mid-trajectory, it records a `Step` with `compaction: CompactionInfo` (plus `metrics` if an LLM call generated the summary):
 
 ```ts
 export interface CompactionInfo {
   trigger?: "limit" | "manual" | "agent" | "subagent_handoff" | "pruning" | "injection" | string;
   boundary?: "replace" | "truncate" | "append" | string;
-  event_id_start?: string;               // First `"events"` `event_id` in the compacted range
-  event_id_end?: string;                 // Last `"events"` `event_id` in the compacted range
-  step_id_start?: number;                // Derived 1-based start `step_id` (resolved from `event_id_start`)
-  step_id_end?: number;                  // Derived 1-based end `step_id` (resolved from `event_id_end`)
-  summary?: string;                      // Summary or handoff prompt replacing compacted history
+  event_id_start?: string;
+  event_id_end?: string;
+  step_id_start?: number;
+  step_id_end?: number;
+  summary?: string;
   tokens_before?: number;
   tokens_after?: number;
-  compaction_trajectory_id?: string;     // Child `trajectory_id` when compaction ran as `parent_reason: "compaction"`
+  compaction_trajectory_id?: string;
   extensions?: Extensions;
 }
 ```
 
-- **Boundary semantics** (aligned with [RFC 0001][rfc-0001] §VII): `"replace"` starts active
-  post-compaction model context with `summary` in place of `step_id_start..step_id_end`;
-  `"truncate"` drops the range without a summary; `"append"` injects `summary` without
-  evicting prior steps.
-
-<details>
-<summary><strong>Design Rationale: Interleaved <code>Step.content[]</code> &amp; First-Class <code>CompactionInfo</code></strong></summary>
-
-- **Why replace `message: str | ContentPart[]` and `reasoning_content: str` with `content: ContentPart[]`?**
-  In ATIF v1.x, `Step.reasoning_content` was a single string separated from `Step.message` and
-  `Step.tool_calls`. Modern models (Claude 4.x, OpenAI o-series/GPT-5, Gemini) emit multiple
-  distinct thinking blocks (each with its own cryptographic `signature`, optional `summarized`
-  flag, or withheld `text` when redacted) interleaved with text and tool calls. Extending ATIF
-  v1.x's `ContentPart` (`text`, `image`, `audio`) with `reasoning` (`ReasoningContent`),
-  `data`, `video`/`document`, and `action` (`action_id`) markers in `Step.content[]` preserves
-  exact generation order and eliminates `string | array` union ambiguity without introducing
-  wrapper nesting on plain text parts.
-- **Why promote `compaction` from `step.extra.context_management`?**
-  Context compaction is now standard across Claude Code (`compact_boundary`), Codex CLI
-  (`compacted`), OpenCode, Pi, and Terminus 2. Promoting `CompactionInfo` standardizes the
-  summarized range (`step_id_start..step_id_end`), token reduction (`tokens_before`,
-  `tokens_after`), `summary` text, and optional `compaction_trajectory_id` link without
-  conflating compaction summaries with general subagent delegations.
-
-</details>
-
-<details>
-<summary><strong>Changes from ATIF v1.x: <code>Step</code> &amp; <code>ContentPart</code> Field-by-Field Comparison</strong></summary>
-
-| ATIF v1.x Field | Disposition in v2.0 | ATIF v2.0 Field / Replacement | Rationale |
+| Field | Type | Origin | Description |
 | :--- | :--- | :--- | :--- |
-| `Step.step_id` (`int`, required) | **Kept** | `Step.step_id?: number` | Required 1-based integer in `"trajectories"`; optional in `"events"` where `event_id` is used at stream time. |
-| `Step.source` (`"system" \| "user" \| "agent"`) | **Kept** | `Step.source` | Unchanged. |
-| `Step.timestamp` (`str`) | **Changed** | `Step.start_time?: Timestamp`, `Step.end_time?: Timestamp` | Replaced single point-in-time timestamp with explicit start and end timestamps to measure turn and tool-call duration (v1.x upgrade sets `end_time = start_time`). |
-| `Step.model_name` (`str`) | **Changed** | `Step.model?: ModelMetadata` (`model.name`) | Consolidated with `reasoning_effort` and `reasoning_budget` into a single `ModelMetadata` object. |
-| `Step.reasoning_effort` (`float \| str`) | **Changed** | `Step.model.reasoning_effort` (string tier) & `Step.model.reasoning_budget` (numeric) | Separated qualitative effort tiers (`"low"`, `"high"`) from numeric token budgets/ratios so both are strongly typed. |
-| `Step.message` (`str \| list[ContentPart]`) | **Changed** | `Step.content?: ContentPart[]` (`{ type: "text", text: "..." }`, etc.) | Eliminated polymorphic `string \| array` schema; SDKs expose `step.message_text` as a convenience getter. |
-| `Step.reasoning_content` (`str`) | **Changed** | `Step.content[]` items with `reasoning: ReasoningContent` | Supports multiple interleaved thinking blocks per step, distinguishing verbatim CoT from `summarized` blocks and supporting `signature`-only redacted blocks (`text` omitted). |
-| `Step.tool_calls` (`list[ToolCall]`) & `Step.observation` (`Observation`) | **Consolidated** | `Step.actions?: Action[]` + `{ type: "action", action_id }` markers in `Step.content[]` | Eliminated manual `tool_call_id == source_call_id` joins by colocating tool call inputs and outputs on `Action`. |
-| `Step.is_copied_context` (`bool`, v1.5) | **Changed** | `Step.original_trajectory_id?: string` & `Step.original_trajectory_reason?: TrajectoryLineageReason` | Generalizes boolean flag to identify *which* trajectory a step was copied from and *why* (`"fork"`, `"candidate"`, `"rewind"`, `"continuation"`). |
-| `Step.llm_call_count` (`int`, v1.7) | **Moved to Extension** | `Step.extensions["com.harborframework.v1"].llm_call_count` | In ATIF v2.0, each `source: "agent"` `Step` with model content/metrics represents a single LLM call by construction; opaque multi-call or `0`-call v1.7 counts are preserved in `extensions["com.harborframework.v1"]`. |
-| `Step.metrics` (`Metrics`) | **Kept & Expanded** | `Step.metrics?: StepMetrics` | Expanded with cache write, reasoning, cost source, latency, and retry counts. |
-| `Step.extra` (`dict[str, Any]`) | **Changed** | `Step.extensions?: Extensions` (and `Step.compaction?: CompactionInfo`) | Promoted `extra.context_management` to `Step.compaction`; namespaced remaining custom keys. |
-| `ContentPart.type` (`"text" \| "image" \| "audio"`) | **Kept & Expanded** | `ContentPart.type?: "text" \| "reasoning" \| "data" \| "image" \| "audio" \| "video" \| "document" \| "action"` | Preserves v1.x `"text"`, `"image"`, and `"audio"` verbatim while adding `"reasoning"`, `"data"`, `"video"`, `"document"`, and `"action"` (optional in `"events"`, populated in `"trajectories"` & SQL). |
-| `ContentPart.text` (`str`) | **Kept** | `ContentPart.text?: string` | Identical flat string wire shape (`{ "type": "text", "text": "..." }`), keeping an inline preview when truncated with metadata in `ContentPart.truncated_fields["text"]`. |
-| `ContentPart.source` (`ImageSource \| AudioSource`, v1.6/v1.8) | **Kept & Expanded** | `ContentPart.source?: MediaSource` (`BlobReference` + `duration_sec?`) | Keeps `source.{media_type, duration_sec}`, standardizes `source.path` → `source.uri` (RFC 3986 URI reference), relaxes closed MIME enums to any IANA `media_type`, and adds optional content-addressed `digest`, `size_bytes`, and `filename`. |
-| *(New in v2.0)* | **Added** | `Step.event_ids`, `Step.agent_name`, `Step.compaction`, `Step.citations`, `Step.stop_reason`, `Step.error`, `Step.truncated_fields`, `ContentPart.{reasoning, data, action_id, truncated_fields, extensions}` | Added streaming provenance, single-thread multi-agent attribution, context compaction, model citations/grounding references, normalized stop reasons, structured data parts, interleaved action markers, per-part extensions, and local truncation/blob metadata. |
+| `trigger` | `string` | Optional | Open vocabulary: `"limit"`, `"manual"`, `"agent"`, `"subagent_handoff"`, `"pruning"`, `"injection"`. |
+| `boundary` | `string` | Optional | Open vocabulary: `"replace"`, `"truncate"`, `"append"` (see semantics below). |
+| `event_id_start`, `event_id_end` | `string` | Optional | First and last `event_id` in the compacted range. |
+| `step_id_start`, `step_id_end` | `number` | Derived | 1-based start and end `step_id` resolved from `event_id_start`/`event_id_end`. |
+| `summary` | `string` | Optional | Summary or handoff prompt replacing compacted history. |
+| `tokens_before`, `tokens_after` | `number` | Optional | Context token counts before and after compaction. |
+| `compaction_trajectory_id` | `string` | Optional | Child `trajectory_id` when compaction ran as `parent_reason: "compaction"`. |
+| `extensions` | `Extensions` | Optional | Namespaced compaction metadata. |
 
-</details>
+**`boundary` semantics:**
 
----
+| Value | Meaning |
+| :--- | :--- |
+| `"replace"` | Active post-compaction model context begins with `summary` in place of `step_id_start..step_id_end`. |
+| `"truncate"` | Drops `step_id_start..step_id_end` without a summary. |
+| `"append"` | Injects `summary` without evicting prior steps. |
 
-## Unified Actions & Canonical Normalization
+### Actions and Approvals
 
-### `Action` and `ApprovalInfo`
-
-`Step.actions` colocates each tool or environment action's invocation (`name`, `arguments`),
-execution result (`output: ContentPart[]`), error status (`errored`), timing (`start_time`,
-`end_time`), background task correlation (`task_id`, `task_detached`), approval (`approval`),
-and semantic normalization (`canonical`):
+`Step.actions` colocates each tool or environment action's invocation, result, timing, error status, approval, background task correlation, and semantic normalization:
 
 ```ts
 export type ActionExecutor = "client" | "environment" | "provider" | "external";
 
 export interface Action {
-  action_id: string;                     // Unique within `trajectory_id` across `"events"` and `"trajectories"`
-  event_ids?: string[];                  // Ordered `"events"` `event_id`s contributing to this action
+  action_id: string;
+  event_ids?: string[];
   type?: "tool" | "system" | "user_interaction" | "policy" | "internal" | string;
-  parent_action_id?: string;             // Enclosing `action_id` for nested / code-mode / `canonical.multi` sub-actions
+  parent_action_id?: string;
 
-  executor?: ActionExecutor;             // Execution plane (defaults to matching `ToolDefinition.executor` when omitted)
-  environment_name?: string;             // Target `EnvironmentDefinition.name` in `Trajectory.environments[]` (defaults to `environments[0]`)
+  executor?: ActionExecutor;
+  environment_name?: string;
 
-  task_id?: string;                      // Correlates background launch, status-poll, send-input, and completion actions
-  task_detached?: boolean;               // True when spawning a background task that outlives this step
-  errored?: boolean;                     // True on tool error or non-zero exit status
+  task_id?: string;
+  task_detached?: boolean;
+  errored?: boolean;
 
-  name?: string;                         // Raw tool name (required in `"trajectories"`; optional on `"events"` output updates)
-  uri?: ArdUrn | string;                 // Optional ARD / AI Catalog URN (`"urn:air:..."`; see Resource Identifiers below) or tool URI
+  name?: string;
+  uri?: ArdUrn | string;
   arguments?: Record<string, unknown>;
   approval?: ApprovalInfo;
-  output?: ContentPart[];                // SDKs expose `action.output_text` joining `"text"` parts
-  canonical?: CanonicalAction;           // Harness-agnostic semantic overlay (see Canonical Actions Overview & Canonical Actions Catalog)
+  output?: ContentPart[];
+  canonical?: CanonicalAction;
 
-  model?: ModelMetadata;                 // Populated when the tool itself performs an internal LLM call
-  metrics?: StepMetrics;                 // Token/cost metrics for tool-internal LLM calls
+  model?: ModelMetadata;
+  metrics?: StepMetrics;
   start_time?: Timestamp;
   end_time?: Timestamp;
   truncated_fields?: Record<string, TruncationInfo>;
@@ -645,119 +571,417 @@ export interface ApprovalInfo {
 }
 ```
 
-**Normative invariants:**
-- **Trajectory-unique `action_id`**: `Action.action_id` MUST be unique within a `trajectory_id`
-  across both `"events"` and `"trajectories"` documents. When an underlying model or harness
-  emits non-unique per-turn call IDs (e.g. `"call_1"` across multiple turns), the `"events"`
-  producer MUST scope the ID to the turn or event (e.g. `"<turn>-call_1"`).
-- **Detached background tasks never mutate past steps**: An action with `task_detached: true`
-  closes immediately with its synchronous launch handle output; later status polls
-  (`task_status`), input sends, or completion notifications are recorded as separate `Action`
-  entries on the step where they occur, correlated via `task_id`.
-- **Execution plane (`executor`) & environment targeting (`environment_name`)**: `ActionExecutor`
-  is a closed 4-value vocabulary distinguishing *where* tool execution occurred:
-  `"client"` (the agent client/orchestrator, e.g. subagent/swarm coordination or credential-proxied
-  controller tools), `"environment"` (inside a runtime workspace/sandbox in
-  `Trajectory.environments[]`, e.g. shell/filesystem/container actions), `"provider"` (server-side
-  inside the LLM API or inference router, e.g. Anthropic `server_tool_use`, OpenAI/Gemini built-in
-  tools, OpenRouter plugins), and `"external"` (delegated to an external service such as an MCP
-  server or remote agent API). `ToolDefinition.executor` declares a tool's default execution plane;
-  `Action.executor` overrides it or stands alone when `agent.tools` is omitted. `Action.environment_name`
-  identifies which `EnvironmentDefinition.name` hosted or was targeted by the action (defaulting to
-  `Trajectory.environments[0]` when omitted, and orthogonal to `executor` so an `"external"` local
-  `stdio` MCP server inside a specific sandbox can still record its `environment_name`).
+| Field | Type | `events` | `trajectories` | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `action_id` | `string` | Required | Required | Unique identifier within `trajectory_id`. |
+| `event_ids` | `string[]` | Omitted | Optional, derived | Ordered `event_id`s contributing to this action. |
+| `type` | `string` | Optional | Optional | Open vocabulary: `"tool"`, `"system"`, `"user_interaction"`, `"policy"`, `"internal"`. Non-tool environment observations use `"internal"` or `"system"`. |
+| `parent_action_id` | `string` | Optional | Optional | Enclosing `action_id` for nested, code-mode, or `canonical.multi` sub-actions. |
+| `executor` | `ActionExecutor` | Optional | Optional | Closed execution-plane vocabulary (defaults to matching `ToolDefinition.executor`). |
+| `environment_name` | `string` | Optional | Optional | Target `EnvironmentDefinition.name` in `Trajectory.environments[]` (defaults to `environments[0]`). |
+| `task_id` | `string` | Optional | Optional | Correlates background launch, status-poll, send-input, and completion actions. |
+| `task_detached` | `boolean` | Optional | Optional | `true` when spawning a background task that outlives this step. |
+| `errored` | `boolean` | Optional | Optional | `true` on tool error or non-zero exit status (sticky during merge). |
+| `name` | `string` | Optional on output updates | Required | Raw tool or action name emitted by the harness. |
+| `uri` | `ArdUrn` \| `string` | Optional | Optional | ARD URN or tool URI (see [Resource Identifiers](#resource-identifiers)). |
+| `arguments` | `Record<string, unknown>` | Optional | Optional | Raw tool call arguments. |
+| `approval` | `ApprovalInfo` | Optional | Optional | Human, agent, or policy approval decision (`decision` and `authority` are closed vocabularies). |
+| `output` | `ContentPart[]` | Optional | Optional | Multimodal action result parts. |
+| `canonical` | `CanonicalAction` | Optional | Optional | Harness-agnostic semantic overlay (see [Canonical Actions Catalog](./references/canonical-actions.md)). |
+| `model`, `metrics` | structs | Optional | Optional | Populated when the action itself performs an internal LLM call. |
+| `start_time`, `end_time` | `Timestamp` | Optional | Optional / Derived | Action start and end timestamps. |
+| `truncated_fields`, `extensions` | maps | Optional | Optional | Local truncation metadata and namespaced extensions. |
 
-### Canonical Actions Overview (`Action.canonical`)
+**Action invariants:**
 
-While `Action.name`, `Action.arguments`, and `Action.output` always preserve the raw harness
-tool call, `Action.canonical` provides an optional strongly typed semantic overlay for
-cross-harness analysis. Top-level `Action.canonical.mcp` records MCP server/tool provenance
-orthogonally so MCP-backed file, search, or shell tools can also populate a typed semantic
-variant (`file_read`, `search`, etc.); in `"trajectories"` documents and SQL projections,
-`Action.canonical.type` holds the active variant key (or `"mcp_tool"` when only
-`canonical.mcp` is populated).
+1. **Trajectory-unique `action_id`**: `Action.action_id` MUST be unique within a `trajectory_id` across both `"events"` and `"trajectories"` documents. If an underlying model or harness reuses per-turn call IDs (e.g., `"call_1"` across turns), the `"events"` producer MUST scope the ID to the turn or event (e.g., `"<turn>-call_1"`).
+2. **Detached background tasks**: An action with `task_detached: true` closes immediately with its synchronous launch output and MUST NOT mutate past steps. Later status polls (`task_status`), input sends, or completion notifications are recorded as separate `Action` entries on the step where they occur, correlated via `task_id`.
+3. **Execution plane (`executor`) and environment targeting (`environment_name`)**: `ActionExecutor` is a closed 4-value vocabulary distinguishing *where* execution occurred:
 
-| Semantic Family | Representative Variants | Example Harness Tools Normalized |
+| `executor` | Execution Plane | Examples |
 | :--- | :--- | :--- |
-| **Command & Script Execution** | `shell_command`, `shell_send_input`, `script_exec` | `Bash`, `exec_command`, `run_terminal_cmd`, `bash_command` |
-| **Filesystem Operations** | `file_read`, `file_write`, `file_search`, `file_list`, `file_move`, `file_delete` | `Read`, `Write`, `Edit`, `apply_patch`, `str_replace_editor`, `Grep`, `Glob`, `delete_file` |
-| **Agent Coordination & Lifecycle** | `subagent`, `message_send`, `message_read`, `elicitation`, `timer`, `synthetic_context` | `Task`, `spawn_agent`, `invoke_subagent`, `SendMessage`, `post_message`, `read_board`, `swarm_wait`, `AskUserQuestion` |
-| **Background Task Management** | `task_status`, `task_list`, `task_stop` | `TaskOutput`, `TaskStop`, `KillShell`, `manage_task`, `wait` |
-| **Information Retrieval & Web** | `search`, `web_fetch` | `WebSearch`, `WebFetch`, `web_search_call`, `code_search` |
-| **Skills, MCP Provenance, & Discovery** | `skill_activate`, `skill_reference`, `skill_script`, `resource_discovery`, plus orthogonal `canonical.mcp` (`type: "mcp_tool"` when standalone) | `Skill`, `mcp__<server>__<tool>`, `ToolSearch`, `skill_search` |
-| **Utility, Media, & Extensions** | `multi`, `generate_media`, `extension` | `multi_tool_use.parallel`, code-mode multi-action batches, image/audio generation tools, namespaced custom actions |
+| `"client"` | Agent client or orchestrator process | Subagent/swarm coordination, credential-proxied controller tools |
+| `"environment"` | Runtime workspace or sandbox in `Trajectory.environments[]` | Shell, filesystem, container actions |
+| `"provider"` | Server-side inside the LLM API or inference router | Anthropic `server_tool_use`, OpenAI/Gemini built-in tools, router plugins |
+| `"external"` | External service or remote tool host | MCP servers, remote agent APIs |
 
-The normative catalog of all `CanonicalAction` variants, full interfaces, and mapping rules
-(including `CanonicalExtension { namespace, data? }`) is maintained in
-**[Canonical Actions Catalog](./references/canonical-actions.md)**.
+`ToolDefinition.executor` declares a tool's default execution plane; `Action.executor` overrides it or stands alone when `agent.tools` is omitted. `Action.environment_name` identifies which `EnvironmentDefinition.name` hosted or was targeted by the action (defaulting to `Trajectory.environments[0]` when omitted) and is orthogonal to `executor` (for example, an `"external"` local `stdio` MCP server inside a sandbox MAY still record its `environment_name`).
 
-<details>
-<summary><strong>Design Rationale: Unifying <code>tool_calls</code> + <code>observation</code> into <code>Action</code>, <code>Action.output: ContentPart[]</code>, &amp; Consolidating Subagent Links onto <code>canonical.subagent</code></strong></summary>
+### Canonical Actions Overview
 
-- **Why merge `ToolCall` and `ObservationResult` into `Action`?**
-  In ATIF v1.x, inspecting a tool execution required joining `step.tool_calls[i]` with
-  `step.observation.results[j]` via `tool_call_id == source_call_id`. In `"events"`, tool
-  calls and outputs still stream as separate events, then consolidate onto one `Action` in
-  `"trajectories"` for direct queries and UI rendering (non-tool environment observations where
-  `source_call_id` was `null` use `Action.type: "internal"` or `"system"`).
-- **Why use `Action.output: ContentPart[]` and consolidate `subagent_trajectory_ref` onto `Action.canonical.subagent`?**
-  Reusing `ContentPart[]` handles plain text, structured JSON (`data`), and multimodal media
-  with uniform per-part `truncated_fields`. Giving `CanonicalSubagent` optional `trajectory_id`
-  and `uri` covers same-file, warehouse, and external references in one place (`canonical.multi`
-  handles multi-subagent fan-out; `CompactionInfo.compaction_trajectory_id` handles compaction
-  trajectories).
+While `Action.name`, `Action.arguments`, and `Action.output` always preserve the raw harness call, `Action.canonical` provides an optional strongly typed semantic overlay for cross-harness analysis. Top-level `Action.canonical.mcp` records MCP server/tool provenance orthogonally so MCP-backed tools can simultaneously populate a semantic variant (`file_read`, `search`, etc.). In `"trajectories"` documents and SQL projections, `Action.canonical.type` holds the active variant key (or `"mcp_tool"` when only `canonical.mcp` is populated).
 
-</details>
+| Semantic Family | `CanonicalAction` Variants |
+| :--- | :--- |
+| **Utility** | `multi` |
+| **Agent Coordination & Lifecycle** | `subagent`, `message_send`, `message_read`, `elicitation`, `timer`, `synthetic_context` |
+| **Task & Process Management** | `task_status`, `task_list`, `task_stop` |
+| **Command & Script Execution** | `shell_command`, `shell_send_input`, `script_exec` |
+| **Filesystem Operations** | `file_read`, `file_write`, `file_search`, `file_list`, `file_move`, `file_delete` |
+| **Information Retrieval & Web** | `search`, `web_fetch` |
+| **Skills** | `skill_activate`, `skill_reference`, `skill_script` |
+| **Media Generation** | `generate_media` |
+| **Extensibility, Discovery, & MCP** | `extension`, `resource_discovery`, plus orthogonal `canonical.mcp` (`type: "mcp_tool"` when standalone) |
 
-<details>
-<summary><strong>Changes from ATIF v1.x: <code>ToolCall</code>, <code>Observation</code>, &amp; <code>SubagentTrajectoryRef</code> &rarr; <code>Action</code> &amp; <code>CanonicalSubagent</code></strong></summary>
-
-| ATIF v1.x Field | Disposition in v2.0 | ATIF v2.0 Field / Replacement | Rationale |
-| :--- | :--- | :--- | :--- |
-| `ToolCall.tool_call_id` (`str`) | **Changed (Renamed)** | `Action.action_id: string` | Generalized to cover tool calls, system/environment observations, and user elicitation actions. |
-| `ToolCall.function_name` (`str`) | **Changed (Renamed)** | `Action.name?: string` | Concise naming aligned with `AgentMetadata.name`, `ToolDefinition.name`, and `ModelMetadata.name`. |
-| `ToolCall.arguments` (`dict[str, Any]`) | **Kept** | `Action.arguments?: Record<string, unknown>` (plus `truncated_fields`) | Preserved structured JSON object; individual oversized keys (e.g. `"arguments.content"`) keep inline previews and record metadata in `Action.truncated_fields`. |
-| `ToolCall.extra` (`dict[str, Any]`) | **Changed** | `Action.extensions?: Extensions` | Merged into `Action.extensions` (with v1 round-trip separation under `extensions["com.harborframework.v1"]`). |
-| `ObservationResult.source_call_id` (`str \| None`) | **Removed (Consolidated)** | Joined directly onto `Action.action_id` (or `Action.type: "internal"` when `null`) | Eliminates relational join between `tool_calls[]` and `observation.results[]`. |
-| `ObservationResult.content` (`str \| list[ContentPart]`) | **Changed** | `Action.output?: ContentPart[]` | Unified with `Step.content[]` (`text`, `data`, `source`) with per-part `truncated_fields`. |
-| `ObservationResult.subagent_trajectory_ref` (`list[SubagentTrajectoryRef]`) | **Consolidated** | `Action.canonical.subagent` (or `canonical.multi` for $>1$ subagent; `CompactionInfo.compaction_trajectory_id` on compaction steps) | Consolidates subagent delegation targets directly onto `CanonicalSubagent` without a separate reference array on `Action`. |
-| `Observation.extra` (`dict[str, Any]`) | **Changed** | `Action.extensions?: Extensions` | Namespaced on `Action.extensions`. |
-| `SubagentTrajectoryRef.{trajectory_id, trajectory_path, session_id, extra}` | **Consolidated** | `CanonicalSubagent.{trajectory_id, uri}` (with `session_id` / `extra` in `Action.extensions["com.harborframework.v1"]`) | Maps embedded `trajectory_id` and external `trajectory_path` (`uri`) directly onto `CanonicalSubagent`. |
-| *(New in v2.0)* | **Added** | `Action.type`, `event_ids`, `parent_action_id`, `executor`, `environment_name`, `task_id`, `task_detached`, `errored`, `uri`, `approval`, `canonical`, `model`, `metrics`, `start_time`, `end_time`, `truncated_fields` | First-class support for execution planes & multi-environment routing, background tasks, HITL approvals, error status, execution timing, tool-internal LLM metrics, local field truncation, and typed `CanonicalAction` schemas. |
-
-</details>
+The normative definitions of all 28 `CanonicalActionType` values and their schemas are specified in the **[Canonical Actions Catalog](./references/canonical-actions.md)**.
 
 ---
 
-## Events Document & Stream Consolidation
+## Harness, Environment, and Resource Metadata
 
-### `TrajectoryEvent`, `SessionPatch`, & Streaming Rules (`.atif-e.jsonl`)
+### Agent Metadata
 
-An `"events"` document starts with line 1 `type: "meta"` (`document_type: "events"`), followed
-by `EventRecord` (`type: "event"`) and optional `ExtensionRecord` (`type: "extension"`) lines.
-Routing IDs (`session_id?`, `trajectory_id?`) live on the `EventRecord` envelope; the inner
-`TrajectoryEvent` carries a single payload (`session`, `trajectory`, `step`, or `action`), a
-standalone `branch` jump, or `branch` together with `step`:
+```ts
+export interface AgentMetadata {
+  name: string;
+  version?: string;
+  role?: string;
+  identifier?: ArdUrn | string;
+  model?: ModelMetadata;
+  system_instructions?: string;
+  skills?: SkillDefinition[];
+  mcp_servers?: McpServerDefinition[];
+  subagents?: SubagentDefinition[];
+  tools?: ToolDefinition[];
+  truncated_fields?: Record<string, TruncationInfo>;
+  extensions?: Extensions;
+}
+```
+
+- `name` is required (e.g., `"claude-code"`, `"codex-cli"`, `"terminus-2"`).
+- `role` records the agent's multi-agent role (e.g., `"coordinator"`, `"reviewer"`).
+- `system_instructions` retains an inline preview when truncated (recorded in `AgentMetadata.truncated_fields["system_instructions"]`).
+
+### Model Metadata
+
+```ts
+export interface ModelMetadata {
+  name?: string;
+  provider?: string;
+  version?: string;
+  reasoning_effort?: "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | string;
+  reasoning_budget?: number;
+  context_window_tokens?: number;
+  supported_modalities?: Modality[];
+  parameters?: Record<string, unknown>;
+  identifier?: ArdUrn | string;
+  extensions?: Extensions;
+}
+```
+
+- `reasoning_effort` captures qualitative effort tiers (open vocabulary); `reasoning_budget` captures numeric thinking token budgets or ratios.
+- `parameters` holds inference parameters such as `temperature`, `top_p`, and `max_output_tokens`.
+
+### Tool Definitions
+
+Provider-neutral tool schema aligned with the Model Context Protocol (MCP) `Tool` shape (`snake_case`):
+
+```ts
+export interface ToolDefinition {
+  name: string;
+  title?: string;
+  description?: string;
+  input_schema?: Record<string, unknown>;
+  output_schema?: Record<string, unknown>;
+  annotations?: Record<string, unknown>;
+  executor?: ActionExecutor;
+  mcp_server?: string;
+  identifier?: ArdUrn | string;
+  extensions?: Extensions;
+}
+```
+
+- `name` matches `Action.name`; `input_schema` and `output_schema` hold JSON Schemas.
+- `annotations` carries MCP tool hints (`read_only_hint`, `destructive_hint`, `idempotent_hint`, `open_world_hint`).
+- `executor` declares the default execution plane for calls to this tool (`Action.executor` may override); `mcp_server` references the originating `McpServerDefinition.name`.
+
+### Auxiliary Catalogs
+
+#### `SkillDefinition`
+
+```ts
+export interface SkillDefinition {
+  name: string;
+  description?: string;
+  version?: string;
+  uri?: string;
+  identifier?: ArdUrn | string;
+  type?: string;
+  source?: BlobReference;
+  extensions?: Extensions;
+}
+```
+
+`uri` points to the skill definition (e.g., `SKILL.md`); `source` optionally references an archived skill bundle/file.
+
+#### `McpServerDefinition`
+
+```ts
+export interface McpServerDefinition {
+  name: string;
+  transport?: "stdio" | "sse" | "streamable_http" | "in_process" | string;
+  uri?: string;
+  command?: string;
+  args?: string[];
+  version?: string;
+  identifier?: ArdUrn | string;
+  tools?: string[];
+  extensions?: Extensions;
+}
+```
+
+`tools` lists the tool names exposed by this MCP server.
+
+#### `SubagentDefinition`
+
+```ts
+export interface SubagentDefinition {
+  name: string;
+  description?: string;
+  model_name?: string;
+  system_instructions?: string;
+  allowed_tools?: string[];
+  identifier?: ArdUrn | string;
+  truncated_fields?: Record<string, TruncationInfo>;
+  extensions?: Extensions;
+}
+```
+
+### Execution Environments
+
+```ts
+export interface SandboxConfig {
+  type?: string;
+  image?: string;
+  network_restricted?: boolean;
+  filesystem_restricted?: boolean;
+  writable_roots?: string[];
+  approval_mode?: string;
+  extensions?: Extensions;
+}
+
+export interface VcsInfo {
+  system?: "git" | "jj" | "hg" | "perforce" | "other" | string;
+  repo_uri?: string;
+  root_dir?: string;
+  branch?: string;
+  commit?: string;
+  dirty?: boolean;
+  diff?: BlobReference;
+  extensions?: Extensions;
+}
+
+export interface EnvironmentDefinition {
+  name?: string;
+  os?: string;
+  os_version?: string;
+  arch?: string;
+  cwd?: string;
+  shell?: string;
+  identifier?: ArdUrn | string;
+  sandbox?: SandboxConfig;
+  vcs?: VcsInfo;
+  extensions?: Extensions;
+}
+```
+
+- `name` is the local key referenced by `Action.environment_name`. It is optional when `Trajectory.environments[]` has a single entry and REQUIRED on every entry when `environments.length > 1`.
+- `sandbox.type` identifies the isolation runtime (e.g., `"docker"`, `"seatbelt"`, `"landlock"`, `"daytona"`, `"modal"`); `sandbox.approval_mode` records policy mode (e.g., `"on-request"`, `"never"`, `"auto-edit"`).
+- `vcs.diff` optionally references an uncommitted working-tree diff patch blob.
+
+### Resource Identifiers
+
+Every catalog entity (`AgentMetadata`, `ModelMetadata`, `ToolDefinition`, `EnvironmentDefinition`, `SkillDefinition`, `McpServerDefinition`, and `SubagentDefinition`), `Action.uri`, and `identifier` / `*_identifier` fields in the [Canonical Actions Catalog](./references/canonical-actions.md) accept an optional `identifier?: ArdUrn | string`.
+
+When populated, `identifier` SHOULD use the 5-segment **Agentic Resource Discovery (ARD)** URN format defined by the [AI Catalog specification][ai-catalog]:
+
+```text
+urn:air:<publisher>:<namespace>:<name>
+```
+
+Standard namespaces are `runtimes`, `agents`, `models`, `tools`, `skills`, `mcp`, and `environments` (for example, `urn:air:anthropic:models:claude-sonnet-4-5`, `urn:air:github:mcp:github-mcp-server`, or `urn:air:harbor:skills:pytest-debugging`).
+
+---
+
+## Metrics and Token Accounting
+
+### Inclusive Token Accounting
+
+All token counts in `StepMetrics`, `FinalMetrics`, and `GranularTokenUsage` MUST satisfy the **Inclusive Token Accounting Invariant**:
+
+```text
+input_tokens  >= (cache_read_tokens ?? 0) + (cache_write_tokens ?? 0)
+output_tokens >= (reasoning_tokens ?? 0)
+```
+
+- `input_tokens` is total input/prompt tokens, **inclusive** of `cache_read_tokens` and `cache_write_tokens`.
+- `output_tokens` is total output/completion tokens, **inclusive** of `reasoning_tokens`.
+
+### Cross-Provider Token Normalization
+
+Producers converting native LLM or harness usage payloads MUST normalize them to the inclusive invariant using the formulas below:
+
+| Provider / Harness | Native Token Fields | ATIF v2.0 `StepMetrics` Formula |
+| :--- | :--- | :--- |
+| **Anthropic API** (Claude Code, Pi, Cursor CLI, Cline) | `input_tokens` (uncached only), `cache_read_input_tokens`, `cache_creation_input_tokens`, `output_tokens` | `input_tokens = raw.input_tokens + cache_read + cache_creation`<br>`cache_read_tokens = cache_read`<br>`cache_write_tokens = cache_creation`<br>`output_tokens = raw.output_tokens` |
+| **OpenAI Responses / Chat API** (Codex CLI, Mini-SWE-Agent) | `input_tokens` (inclusive), `cached_input_tokens`, `output_tokens` (inclusive), `reasoning_output_tokens` | `input_tokens = raw.input_tokens`<br>`cache_read_tokens = raw.cached_input_tokens`<br>`output_tokens = raw.output_tokens`<br>`reasoning_tokens = raw.reasoning_output_tokens` |
+| **Google Gemini API** (Antigravity, ADK) | `promptTokenCount` (inclusive of cached), `toolUsePromptTokenCount`, `candidatesTokenCount` (excludes thoughts), `thoughtsTokenCount` | `input_tokens = promptTokenCount + (toolUsePromptTokenCount ?? 0)`<br>`cache_read_tokens = cachedContentTokenCount`<br>`output_tokens = candidatesTokenCount + (thoughtsTokenCount ?? 0)`<br>`reasoning_tokens = thoughtsTokenCount` |
+| **OpenCode** | `tokens: { input, output, reasoning, cache: { read, write } }` (disjoint buckets) | `input_tokens = tokens.input + (cache.read ?? 0) + (cache.write ?? 0)`<br>`cache_read_tokens = cache.read`; `cache_write_tokens = cache.write`<br>`output_tokens = tokens.output + (tokens.reasoning ?? 0)`<br>`reasoning_tokens = tokens.reasoning` |
+| **OpenHands** | `accumulated_token_usage` (session-cumulative) | Subtract prior step's cumulative session watermark (`delta = current - prev`). |
+
+### Step and Final Metrics
+
+```ts
+export interface StepMetrics {
+  input_tokens?: number;
+  output_tokens?: number;
+  cache_read_tokens?: number;
+  cache_write_tokens?: number;
+  reasoning_tokens?: number;
+  cost_usd?: number;
+  cost_source?: "reported" | "estimated" | string;
+
+  retry_count?: number;
+  time_to_first_token_ms?: number;
+  duration_ms?: number;
+  response_id?: string;
+
+  prompt_token_ids?: number[];
+  completion_token_ids?: number[];
+  logprobs?: number[];
+
+  granular?: GranularTokenUsage[];
+  extensions?: Extensions;
+}
+
+export interface FinalMetrics {
+  total_input_tokens?: number;
+  total_output_tokens?: number;
+  total_cache_read_tokens?: number;
+  total_cache_write_tokens?: number;
+  total_reasoning_tokens?: number;
+  total_cost_usd?: number;
+  cost_source?: "reported" | "estimated" | string;
+  total_steps?: number;
+  total_llm_calls?: number;
+  total_duration_ms?: number;
+  granular?: GranularTokenUsage[];
+  extensions?: Extensions;
+}
+
+export interface GranularTokenUsage {
+  model_name?: string;
+  modality?: Modality;
+  input_tokens?: number;
+  output_tokens?: number;
+  cache_read_tokens?: number;
+  cache_write_tokens?: number;
+  reasoning_tokens?: number;
+  cost_usd?: number;
+}
+```
+
+- `retry_count` counts low-level HTTP/SDK transport retries (e.g., 429/5xx) within the step.
+- `time_to_first_token_ms` measures request-sent to first model token received on streaming calls; `duration_ms` measures total LLM inference wall time (streaming decode time is `duration_ms - time_to_first_token_ms`).
+- `response_id` carries the provider inference ID (e.g., Anthropic `message.id`, OpenAI `response_id`).
+- `prompt_token_ids`, `completion_token_ids`, and `logprobs` preserve token-level RL rollout data.
+- `FinalMetrics.total_llm_calls` sums LLM calls across serialized `step` records and tool-internal `Action.metrics`; `total_duration_ms` is `end_time - start_time` in milliseconds.
+
+---
+
+## Truncation, Blobs, and Archive Packaging
+
+### Inline Truncation
+
+An object records truncation of its own fields in `truncated_fields?: Record<string, TruncationInfo>`, keyed by local field path. The mechanism is identical in `"events"` and `"trajectories"` documents.
+
+```ts
+export interface TruncationInfo {
+  original_bytes?: number;
+  strategy?: "head" | "tail" | "head_tail";
+  blob?: BlobReference;
+}
+```
+
+1. **Consolidation-time truncation by default**: On local disk, `"events"` producers SHOULD emit untruncated payloads and let Phase 3 truncate after folding. Producers MAY pre-populate `truncated_fields` under transport size caps (Phase 2 preserves pre-truncated parts unfolded).
+2. **Inline preview invariant**: When a field exceeds an inline threshold (recommended default: **16 KiB** for text/JSON, **0 bytes** for binary media), the inline field retains a valid preview of its normal type (a UTF-8 excerpt for string fields or a sampled JSON prefix for `data` / `arguments`).
+3. **Local field keying (no array-index paths)**: `truncated_fields` lives on the immediate owning object (`AgentMetadata`, `SubagentDefinition`, `ContentPart`, `Action`, `Step`, `Trajectory`), keyed by local field path (e.g., `"system_instructions"`, `"text"`, `"reasoning.text"`, `"arguments.content"`, `"data.stdout"`).
+4. **Lossy truncation vs. lossless offloading**: `TruncationInfo.blob` points to the full payload when archived (`text/plain` for string targets, `application/json` for structured JSON targets) and is omitted for lossy truncation. Binary media parts use `ContentPart.source` (`MediaSource`) directly.
+
+### Content-Addressed Blobs
+
+```ts
+export interface BlobReference {
+  digest?: Sha256Urn;
+  uri?: string;
+  media_type: string;
+  size_bytes?: number;
+  filename?: string;
+}
+```
+
+- `digest` is `"urn:sha256:<64-lowercase-hex>"`; `size_bytes` is the exact unencoded payload byte length.
+- `media_type` is an IANA MIME type (e.g., `"text/plain"`, `"application/json"`, `"image/png"`).
+- `uri` is an archive/file-relative URI (e.g., `"blobs/sha256/4a/<hex>"`) or an external RFC 3986 URI. Relative `BlobReference.uri` paths resolve against the archive root (for `.atif.tar.zst`) or the `.atif.jsonl` parent directory.
+
+### Portable Archive Layout
+
+For single-file packaging of a consolidated trajectory document and its offloaded blobs, a `.atif.tar.zst` file is a Zstandard-compressed POSIX `ustar`/`pax` archive:
+
+- `atif.jsonl` MUST be the **first archive entry**.
+- Optional entries include `atif-e.jsonl` and content-addressed blobs at `blobs/sha256/<first-2-hex>/<64-hex>`.
+- Archive readers MUST enforce the path and link validation rules in [Security Considerations](#security-considerations).
+
+---
+
+## Extensions Model
+
+### Extension Layers
+
+ATIF v2.0 uses a uniform **`namespace` + JSON object** extension model keyed by reverse-DNS domain (e.g., `"com.anthropic.claude-code"`) or RFC 3986 URI across three layers:
+
+1. **Inline `extensions?: Extensions`**: Present on every record payload (`DocumentMeta`, `Session`/`SessionPatch`, `Trajectory`/`TrajectoryPatch`, `Step`, `TrajectoryEvent`) and first-class nested entity (`ContentPart`, `CompactionInfo`, `Action`, `ApprovalInfo`, `CanonicalAction`, `StepMetrics`, `FinalMetrics`, `AgentMetadata`, `ModelMetadata`, `ToolDefinition`, `SkillDefinition`, `McpServerDefinition`, `SubagentDefinition`, `EnvironmentDefinition`, `SandboxConfig`, `VcsInfo`, `Citation`). Omitted on the thin `AtifRecord` envelope and small leaf value structs (`DocumentManifest`, `ReasoningContent`, `MediaSource`, `BlobReference`, `TruncationInfo`, `GranularTokenUsage`, `CanonicalMcpProvenance`, and individual `Canonical*` variants).
+2. **Standalone `ExtensionRecord` lines**: Appendable anywhere after line 1 in both `"events"` and `"trajectories"` documents (preserved pass-through by consolidation), carrying `{ namespace, data }` for out-of-band records such as `"com.example.annotation"`.
+3. **Canonical Action extensions (`CanonicalAction.extension`)**: Domain-specific semantic actions using `type: "extension"` and `CanonicalExtension { namespace, data? }` (see [Canonical Actions Catalog](./references/canonical-actions.md#extension)).
+
+### Official Harbor Namespaces
+
+The normative schemas for the three official `com.harborframework.*` namespaces are specified in **[Official Extension Namespaces](./references/extensions.md)**:
+
+| Namespace Key | Placement | Summary |
+| :--- | :--- | :--- |
+| `"com.harborframework.evaluation"` | `Trajectory`, `Session` | Verifier grading (`reward`, `correct`, `verdict`, `benchmark`, `task_id`, `trial_id`, `verifier_version`, `rollout_rank`, `breakdown`). |
+| `"com.harborframework.rl"` | `Trajectory`, `Step` | RL rollout metadata (`prompt_id`, `group_index`, `total_reward`, `gamma`, `masked_out`, `target_policy_versions`; step `reward`, `done`, `policy_version`, `assistant_masks`, `env_tokens`, `env_masks`, `prefill_routed_experts`). |
+| `"com.harborframework.v1"` | Any container with `extensions` | Lossless ATIF v1.x round-trip fields (`schema_version`, `omitted_session_id`, `omitted_trajectory_id`, `llm_call_count`, `message_was_string`, `continued_trajectory_ref`, `subagent_trajectory_ref`, `extra`, `tool_call_extra`, `observation_extra`). |
+
+---
+
+## Events Documents
+
+An `"events"` document (`.atif-e.jsonl`) begins with line 1 `type: "meta"` (`document_type: "events"`), followed by `EventRecord` (`type: "event"`) and optional `ExtensionRecord` (`type: "extension"`) lines.
+
+### Event Records and Patches
+
+Routing IDs (`session_id?`, `trajectory_id?`) live on the `EventRecord` envelope. Each `TrajectoryEvent` carries a single payload (`session`, `trajectory`, `step`, or `action`), a standalone `branch` jump, or `branch` paired with `step`:
 
 ```ts
 export interface EventBranch {
-  after_event_id?: string;               // Last preserved `event_id` on the trunk; omit to branch from root
-  reason?: "rewind" | "retry" | string;  // Optional; defaults to `"retry"` (single replaced agent step) or `"rewind"`
+  after_event_id?: string;
+  reason?: "rewind" | "retry" | string;
 }
 
-// Carries one payload (`session` | `trajectory` | `step` | `action`), a standalone `branch`, or `branch` + `step`.
 export interface TrajectoryEvent {
-  event_id: string;                      // Unique within `trajectory_id` (or `session_id` for `session` events)
-  branch?: EventBranch;                  // Omit on linear events; set only on explicit rewind/retry/branch jumps
-  seq?: number;                          // Optional 1-based monotonic sequence number within the stream
+  event_id: string;
+  branch?: EventBranch;
+  seq?: number;
   timestamp: Timestamp;
-  response_id?: string;                  // Provider turn/inference ID (e.g. `message.id`, `response_id`, `model_call_id`)
+  response_id?: string;
 
-  session?: SessionPatch;                // Session metadata/extensions patch (outer `session_id` required; `trajectory_id` omitted)
-  trajectory?: TrajectoryPatch;          // Trajectory metadata/status/agent/environment field patch
-  step?: Step;                           // Raw step slice or user/system/compaction turn
-  action?: Action;                       // Standalone action declaration or output/enrichment update
-  extensions?: Extensions;               // Event/transport-level metadata (e.g. OTel trace/span IDs, raw log offsets)
+  session?: SessionPatch;
+  trajectory?: TrajectoryPatch;
+  step?: Step;
+  action?: Action;
+  extensions?: Extensions;
 }
 
 export interface SessionPatch {
@@ -777,215 +1001,230 @@ export interface TrajectoryPatch {
   title?: string;
   status?: "running" | "completed" | "failed" | "cancelled" | "max_steps" | "context_limit" | string;
   error?: string;
-  agent?: AgentMetadata;                 // Partial fields allowed; present fields merge into `Trajectory.agent`
-  environments?: EnvironmentDefinition[];// Upserted by `name` into `Trajectory.environments[]` (replaces when `name` is omitted)
-  final_metrics?: FinalMetrics;          // Explicit vendor-reported totals
+  agent?: AgentMetadata;
+  environments?: EnvironmentDefinition[];
+  final_metrics?: FinalMetrics;
   tags?: string[];
   notes?: string;
   truncated_fields?: Record<string, TruncationInfo>;
-  extensions?: Extensions;               // Merged by top-level namespace key into `Trajectory.extensions`
+  extensions?: Extensions;
 }
 ```
 
-**Normative invariants:**
-- **Strict writers, crash-tolerant readers**: Writers MUST emit line 1 `type: "meta"` followed
-  only by `"event"` and `"extension"` rows. Readers SHOULD ignore an unterminated/unparseable
-  final line (partial crash write), SHOULD tolerate repeated compatible `"meta"` lines (from
-  concatenated shards), and MAY accept headerless streams whose line 1 has `type: "event"`.
-- **Linear-by-default streams**: Within a `trajectory_id`, each event implicitly follows the
-  current stream head. Emit `branch` **only** when rewinding, retrying, or switching
-  branches—never on normal linear turns or tool outputs.
-- **Branching rules**:
-  - `branch` MAY appear standalone (no payload, e.g. an explicit rollback event) or alongside
-    `step`; it MUST NOT be paired with `action`, `session`, or `trajectory` (consolidators
-    ignore `branch` with a warning on those payloads).
-  - `branch.after_event_id`, when present, MUST reference an earlier `event_id` in the same
-    `trajectory_id`; omitting it branches from root (before all events).
-- **1-to-$K$ event fan-out**: When one native record (`<uuid>`) expands into $K > 1$ events,
-  emit `"<uuid>#1"`, ..., `"<uuid>#(K-1)"` and bare `"<uuid>"` last so later references to
-  `<uuid>` resolve.
-- **`response_id` grouping & event-scoped `extensions`**: Events sharing `response_id` always
-  consolidate into the same `Step`. `TrajectoryEvent.extensions` carries transport-level
-  metadata (e.g. OTel `trace_id`/`span_id`) and is **not** copied onto consolidated `Step` or
-  `Action` records.
+| Field | Requirement | Description |
+| :--- | :--- | :--- |
+| `event_id` | Required | Unique within `trajectory_id` (or within `session_id` for `session` events). |
+| `branch` | Optional | Omit on linear events; set only on explicit rewind, retry, or branch jumps. |
+| `branch.after_event_id` | Optional | Last preserved `event_id` on the trunk; omit to branch from root (before all events). |
+| `branch.reason` | Optional | Open vocabulary; defaults to `"retry"` (single replaced agent step) or `"rewind"`. |
+| `seq` | Optional | 1-based monotonic sequence number within the stream. |
+| `timestamp` | Required | Event timestamp (`Timestamp`). |
+| `response_id` | Optional | Provider turn/inference ID correlating multiple slices of one LLM turn. |
+| `session` | Optional | `SessionPatch` (requires outer `session_id`; outer `trajectory_id` omitted). |
+| `trajectory` | Optional | `TrajectoryPatch` (partial `agent` fields merge; `environments` upsert by `name` or replace when `name` omitted; explicit `final_metrics` preserved; `extensions` merged by top-level namespace key). |
+| `step` | Optional | Raw step slice or user/system/compaction turn. |
+| `action` | Optional | Standalone action declaration or output/enrichment update. |
+| `extensions` | Optional | Event/transport-level metadata (e.g., OTel `trace_id`/`span_id`, raw log offsets). |
 
-### Three-Phase Stream Consolidation Algorithm (`events` → `trajectories`)
+### Streaming and Branching Rules
 
-The **Stream Consolidation Algorithm** deterministically transforms an `"events"` document
-(`.atif-e.jsonl`) into a consolidated `"trajectories"` document (`.atif.jsonl`) containing the
-winning trunk, sibling child trajectories, optional `"session"` rows, and pass-through
-`"extension"` rows. Concrete Claude Code, Codex CLI, Cursor, and OpenCode translations are
-detailed in
-**[Translating Native Harness Formats to ATIF v2.0](./references/harness-examples.md)**.
+1. **Strict writers**: Writers MUST emit line 1 `type: "meta"` (`document_type: "events"`), followed only by `event` and `extension` records.
+2. **Crash-tolerant readers**: Readers of `"events"` documents SHOULD ignore an unterminated or unparseable final line (partial crash write), SHOULD tolerate repeated compatible `meta` lines (from concatenated shards), and MAY accept headerless streams whose line 1 has `type: "event"`.
+3. **Linear by default**: Within a `trajectory_id`, each event implicitly follows the current stream head. Producers MUST emit `branch` only when rewinding, retrying, or switching branches—never on normal linear turns or tool outputs.
+4. **Branch payload constraint**: `branch` MAY appear standalone (no payload, e.g., an explicit rollback event) or paired with `step`. It MUST NOT be paired with `action`, `session`, or `trajectory` (consolidators ignore `branch` with a warning on those payloads).
+5. **Branch target locality**: When present, `branch.after_event_id` MUST reference an earlier `event_id` in the same `trajectory_id`. Omitting `after_event_id` branches from root (before all events).
+6. **1-to-K event fan-out**: When one native harness record (`<uuid>`) expands into `K > 1` events, emit `"<uuid>#1"`, ..., `"<uuid>#(K-1)"` and bare `"<uuid>"` last so later references to `<uuid>` resolve.
+7. **`response_id` grouping**: Events sharing `response_id` always consolidate into the same `Step`.
+8. **Event-scoped `extensions`**: `TrajectoryEvent.extensions` carries transport-level metadata and is **not** copied onto consolidated `Step` or `Action` records.
 
-#### Phase 1: DAG Linearization (Winning Trunk vs. Branched Trajectories)
-1. **Resolve Predecessors & Cursor Tracking**: Keep `"extension"` rows pass-through,
-   accumulate `{ session }` events per `session_id`, and deduplicate repeated
-   `[trajectory_id, event_id]` events. Per `trajectory_id`, track the current cursor `head`
-   (initially `null`), predecessor links `prev[event_id]`, and displaced tips
-   `(leaf_id, reason?)`:
-   - **Normal payload event** (`trajectory`, `step`, `action`): link `prev[event_id] = head`
-     and advance `head = event_id` (warn and ignore `branch` if paired with `trajectory` or
-     `action`).
-   - **Branch jump** (`event.branch` standalone or with `step`): resolve
-     `target = branch.after_event_id ?? null` (following any standalone-branch alias). If
-     `after_event_id` is unknown, warn and fall back to linear chaining. Otherwise, if
-     `head != null`, record `(head, branch.reason)` as a displaced tip and move
-     `head = target`. A standalone `branch` aliases its `event_id` to `head` without creating
-     a graph node; a `branch + step` event then links `prev[event_id] = head` and advances
-     `head = event_id`.
-2. **Extract Winning Path $\mathcal{T}$**: Walk `prev` backward from the final `head` to
-   `null` (and reverse) to obtain $\mathcal{T} = [E_1, \dots, E_m]$.
-3. **Extract Off-Trunk Branches**: For each unvisited displaced tip `(leaf_id, branch_reason)`
-   in chronological order, walk `prev` backward until reaching an ancestor $E_{\text{fork}}$
-   on $\mathcal{T}$ (or an earlier branch) or `null` (root), skipping chains with no
-   `step`/`action` events. Fork Phase 2 state from immediately after $E_{\text{fork}}$
-   (stamping pre-fork steps with `original_trajectory_id` / `original_trajectory_reason`,
-   never leaking post-fork parent events), fold the off-trunk events, and emit a child
-   trajectory with:
-   - `parent_reason`: `branch_reason` if specified, else `"retry"` (single replaced `agent`
-     step) or `"rewind"` (starts with `user` or spans multiple steps)
-   - `trajectory_id`: `"<parent_id>#<parent_reason>-<k>"`
-   - `parent_trajectory_id`: trajectory owning $E_{\text{fork}}$ (or trunk when forked from
-     root); `parent_event_id`: $E_{\text{fork}}$ (omitted at root)
-   - `parent_steps_excluded`: `true` in Delta Mode when pre-fork steps exist and the parent is
-     in the same file, else omitted/`false`.
+---
 
-#### Phase 2: Turn State Machine & Event Folding
+## Trajectories Documents and Lineage
 
-Each linear event sequence ($\mathcal{T}$ and each child trajectory) is folded by a 3-state
-turn machine (`IDLE`, `GENERATING`, `OBSERVED`) backed by a trajectory-scoped action index
-`actions_by_id: Map<string, Action>` and a `response_id` index
-`steps_by_response_id: Map<string, Step>`. Rules are evaluated in strict precedence order
-(`R1`, `R2`, `R3`/`R4`, `R5`, `R9`, then `R6`/`R7`/`R8`/`R10`):
+### Record Ordering and Self-Containment
+
+1. **Header**: Line 1 MUST be a `meta` record (`document_type: "trajectories"`). Subsequent lines MUST NOT have `type: "meta"`.
+2. **Allowed body records**: Body lines MUST have `type` in `{"session", "trajectory", "step", "extension"}`.
+3. **Sessions before trajectories**: When present, a `session` record MUST precede all `trajectory` records carrying that `session_id`.
+4. **Trajectories before steps**: Every `trajectory` record MUST precede all `step` records for its `trajectory_id`.
+5. **Delta parent locality**: `parent_steps_excluded: true` is valid only when a `trajectory` record for `parent_trajectory_id` appears earlier in the same file.
+6. **Contiguous ascending steps**: Within each `trajectory_id`, `step` records MUST appear in strictly contiguous ascending order (`step_id[i] == step_id[i-1] + 1`), starting at `first_step_id` (or zero `step` records when `step_count == 0`).
+7. **Grouping vs. interleaving**: Writers SHOULD emit all `step` records for a trajectory immediately after its `trajectory` record (roots first, children in chronological topological order) and SHOULD populate `meta.manifest` on batch writes. Readers MUST still accept interleaved `step` records across trajectories.
+8. **Extensions**: `extension` records MAY appear on any line after line 1 (commonly appended at EOF).
+
+### Transitive Lineage and Scoped Rollups
+
+- Root trajectories set `ancestor_trajectory_ids: []` and `trajectory_depth: 0`, so `ancestor_trajectory_ids[0] ?? trajectory_id` yields the root trajectory ID without recursive traversal.
+- `Trajectory.final_metrics` sums that trajectory's serialized `step` records (plus tool-internal `Action.metrics`).
+- `Session.final_metrics` sums only native steps (`original_trajectory_id == null`) present in the file. Partial exports MAY contain lineage pointers referencing trajectories in external files.
+
+### Branching Modes
+
+Every branch is a sibling `trajectory` record plus its `step` records, keeping `(trajectory_id, step_id)` unique across NDJSON, Protobuf, and SQL. Context-continuing branches (`"rewind"`, `"retry"`, `"candidate"`, `"fork"`, `"continuation"`) serialize shared prefix steps in one of two modes:
 
 ```mermaid
-flowchart TD
-    START(( )) --> IDLE(["IDLE"])
-    IDLE -->|"R3: step (user or system)<br>Emit User/System Step"| IDLE
-    IDLE -->|"R6: step (agent) or new action<br>Open Agent Step S"| GENERATING(["GENERATING"])
-    GENERATING -->|"R7: same/no response_id (pre-stop) → Merge into S<br>R8: new response_id / post-stop → Close S; Open S'"| GENERATING
-    GENERATING -->|"R2: action output for S<br>Attach output to Action in S"| OBSERVED(["OBSERVED"])
-    OBSERVED -->|"R2 / R9: remaining action outputs<br>or metrics-only update for S"| OBSERVED
-    OBSERVED -->|"R10: step (agent, new content/response_id)<br>Close S; Open Agent Step S'"| GENERATING
-    GENERATING -->|"R4: step (user or system)<br>Close S; Emit User/System Step"| IDLE
-    OBSERVED -->|"R4: step (user or system)<br>Close S; Emit User/System Step"| IDLE
+flowchart LR
+    subgraph Trunk["traj-1 (Trunk)"]
+      direction LR
+      T1["Step 1<br>user"] --> T2["Step 2<br>agent (fork @ ev-4)"] --> T3["Step 3<br>agent (ev-6)"]
+    end
+    subgraph Delta["traj-1#retry-1 (Delta Mode)"]
+      direction LR
+      D3["Step 3<br>first_step_id: 3<br>parent_steps_excluded: true"]
+    end
+    subgraph Self["traj-1#retry-1 (Self-Contained)"]
+      direction LR
+      S1["Step 1*<br>copied"] --> S2["Step 2*<br>copied"] --> S3["Step 3<br>native"]
+    end
+    T2 -. "Delta" .-> D3
+    T2 -. "Self-Contained" .-> S1
 ```
 
-| Rule | State | Incoming Event | Condition | Consolidation Action |
-| :--- | :--- | :--- | :--- | :--- |
-| **`R1`** | Any | `{ session }` \| `{ trajectory }` | Always | Apply field-merge rules (below) from `{ session }` (`title`, `tags`, `final_metrics`, `extensions`) into `Session` for `session_id`, or from `{ trajectory }` (`agent`, `environments`, lineage, `version`, `title`, `status`, `error`, `final_metrics`, `truncated_fields`, `extensions`) into `Trajectory`. |
-| **`R2`** | Any | `{ action }` (existing `action_id`) | `action_id` in `actions_by_id` | Look up `Action` in `actions_by_id` and update in place (retaining the entry in `actions_by_id`): append `output` parts, merge present `canonical`/`approval`/namespace `extensions`/sticky `errored` fields (see Field-Level Merge Operators), and append `event_id` to `Action.event_ids`. When the event carries `action.end_time` (or `output` updates, defaulting to `event.timestamp` if `action.end_time` is omitted), advance `Action.end_time = max(Action.end_time, incoming_end_time)` and advance the owning step's `end_time = max(step.end_time, Action.end_time)` (metadata-only enrichments without `end_time` or `output` leave existing `end_time` values unchanged). Transition to **`OBSERVED`** if owned by current open `Step` $S$ (detached background tasks close at launch with their launch output; later polls/completions are separate actions correlated by `task_id`). |
-| **`R3`** | `IDLE` | `{ step }` (`user` \| `system`) | Always | Append new `user` or `system` `Step` to `steps[]` (coalescing consecutive `system` compaction boundary + summary events and indexing any declared `actions` in `actions_by_id`). Stay in **`IDLE`**. |
-| **`R4`** | `GENERATING` \| `OBSERVED` | `{ step }` (`user` \| `system`) | Always | Close current agent `Step` $S$; append new `user` or `system` `Step` (indexing any declared `actions` in `actions_by_id`). Transition to **`IDLE`**. |
-| **`R5`** | Any | `{ step }` (`agent`) \| `{ action }` | `response_id` matches existing $S_k$ (and not matched by `R2`) | Merge event directly into $S_k$ and index any newly declared `actions` in `actions_by_id` (handles out-of-order `response_id`-tagged events). |
-| **`R6`** | `IDLE` | `{ step }` (`agent`) \| `{ action }` (new) | Has content, actions, or non-empty turn | Open new `Step(source="agent")` $S$, merge event, and register any declared `actions` in `actions_by_id`. Transition to **`GENERATING`**. |
-| **`R7`** | `GENERATING` | `{ step }` (`agent`) \| `{ action }` (new) | (`response_id` matches $S$) OR (`response_id` unset AND `S.stop_reason` unset) | Coalesce into $S$: append `event_id`, append `content` (synthesizing `{ type: "action", action_id }` for standalone `{ action }` events), upsert `actions` (registering new entries in `actions_by_id`), and snapshot-replace `metrics` fields. Stay in **`GENERATING`**. |
-| **`R8`** | `GENERATING` | `{ step }` (`agent`) \| `{ action }` (new) | (`response_id` differs from $S$) OR (`response_id` unset AND `S.stop_reason` set) | Close $S$, open new `Step(source="agent")` $S'$, merge event, and register any declared `actions` in `actions_by_id`. Stay in **`GENERATING`**. |
-| **`R9`** | Any | `{ step }` (`agent`) | Event has **only** `metrics` / `stop_reason` | Attach late token usage (`token_count` / `step-finish`) and `stop_reason` to current or most recent agent `Step` $S$ (no-op if none exists). State unchanged. |
-| **`R10`** | `OBSERVED` | `{ step }` (`agent`) \| `{ action }` (new) | New model `content`, new `response_id`, or new `action_id` after $S$'s actions resolved | Close $S$, open new `Step(source="agent")` $S'$, merge event (registering any declared `actions` in `actions_by_id`), and transition to **`GENERATING`**. |
+- **Delta Mode (`parent_steps_excluded: true`)**: Valid only when `parent_trajectory_id` appears earlier in the same file (default for in-session `"rewind"`, `"retry"`, and `"candidate"`). Omits unchanged leading prefix steps `1..p` that neither folded a branch event nor were updated on the parent after `parent_event_id`, normally starting at `first_step_id = parent_step_id + 1` (or `step_count: 0` if no step diverged or was added). When `parent_event_id` falls mid-step (or a late parent update mutates a prefix step after `parent_event_id`), the child retains its fork-consistent step from the first diverged index (e.g., Step `K`, containing pre-fork + branch events, never post-fork parent events).
+- **Self-Contained Mode (`parent_steps_excluded` omitted/`false`)**: Required when the parent is not in the same file (such as standalone session forks) or when explicitly exported self-contained. Includes every step from `1`, stamping steps opened at or before `parent_event_id` with `original_trajectory_id: "<parent_id>"` and `original_trajectory_reason`.
+- **Step ID invariance**: Both modes number steps by replaying from Step `1`, and omitted Delta prefix steps are identical to the parent's finalized steps at the same `step_id`. Converting Delta Mode to Self-Contained Mode is an exact prefix splice (`1 .. first_step_id - 1`, or `1 .. (parent_step_id ?? 0)` when `step_count == 0`) that never leaks post-fork parent updates or renumbers any `step_id`, `parent_step_id`, or `step_id_start` reference.
 
-- **Live / incremental consolidation**: Phase 2 can fold `"event"` lines incrementally for live
-  UIs and online-RL consumers, but because a later rewind (`event.branch` jump) can
-  retroactively move prior trunk events onto an off-trunk branch in Phase 1, live snapshots are
-  provisional until finalization; persisted `.atif.jsonl` files (carrying derived headers and
-  `meta.manifest`) are batch-written on stream close or checkpoint boundaries.
+| Topology | `parent_reason` | `parent_steps_excluded` & Prefix | `first_step_id` |
+| :--- | :--- | :--- | :--- |
+| **Root trajectory** | omitted | omitted | `1` (`1..N`) |
+| **Delegated subagent / compaction** | `"subagent"` \| `"compaction"` | omitted for fresh context (`false` with `original_trajectory_reason` if context-forked) | `1` (`1..M`) |
+| **In-session rewind / 1-step retry** | `"rewind"` \| `"retry"` | `true` by default when parent is in file (`false` if self-contained) | `parent_step_id + 1` (or `parent_step_id` on mid-step fork) in Delta; `1` in Self-Contained |
+| **Best-of-N candidate arm** | `"candidate"` | `true` when parent is in file; `false` in standalone export. Winning suffix steps merged onto trunk carry `original_trajectory_id` and `original_trajectory_reason: "candidate"`. | `parent_step_id + 1` (or `parent_step_id` on mid-step fork) in Delta; `1` in Self-Contained |
+| **Standalone session fork** | `"fork"` | `false` by default (prefix copied with `original_trajectory_id` and `original_trajectory_reason: "fork"`) | `1` (`1..K` copied + `K+1..N` native) |
+| **Context continuation** | `"continuation"` | `false` (copied prefix stamped with `original_trajectory_id` or `"(unknown)"` and `original_trajectory_reason: "continuation"`) | `1` (`1..N`) |
 
-<details>
-<summary><strong>Field-Level Merge Operators &amp; Phase 3 Derived Field Rules</strong></summary>
+---
 
-- **Field-Merge Semantics (`R1`, `R2`, `R5`–`R10` — No Arbitrary Recursive Deep-Merge)**:
-  - **Scalars, unkeyed arrays, & opaque JSON objects** (`status`, `title`, `tags`, `arguments`, `parameters`, etc.): last non-null value **replaces** the prior value.
-  - **Keyed `*Definition[]` catalog arrays** (`AgentMetadata.{skills, mcp_servers, subagents, tools}`, `Trajectory.environments`): **upsert by `name`**—when incoming entries specify `name`, field-merge into an existing entry with the same `name` or append if new (enabling incremental dynamic tool/MCP/sandbox registration in `"events"` streams); when incoming entries omit `name` (e.g. a single unnamed environment), replace as a normal array.
-  - **Typed sub-structs** (`Session`, `Trajectory`, `AgentMetadata`, `ModelMetadata`, `EnvironmentDefinition` + `sandbox`/`vcs`, `Action`, `ApprovalInfo`, and a matching-variant `CanonicalAction` sub-struct): **merge present non-null fields** (omitted fields stay intact; if an incoming `CanonicalAction` selects a different variant, it replaces the prior variant so at most one variant stays populated).
-  - **Keyed maps** (`extensions`, `truncated_fields`): **top-level key replace** (`target[key] = incoming[key]`—per-namespace replace for `extensions`, no recursive merge inside a namespace object).
-  - **Append-only streams** (`Step.content`, `Step.citations`, `Action.output`, `event_ids`): **append** in encounter order (with `ContentPart` folding below).
-- **`Step.content` & `Action.output` (Adjacent Text & Unsigned-Reasoning Folding)**: Append
-  parts in encounter order, folding adjacent mergeable parts as follows:
-  - **Non-Folding Guard (`truncated_fields` & `extensions`)**: A `ContentPart` $P$ is
-    **fold-eligible** only when both `P.truncated_fields` and `P.extensions` are unset or empty
-    (`undefined` or `{}`). If either the preceding part $P_{\text{prev}}$ or the incoming part
-    $P_{\text{next}}$ has `truncated_fields` or `extensions` populated, they **MUST NOT** be
-    folded—$P_{\text{next}}$ is appended as a distinct `ContentPart`.
-  - **Adjacent `"text"` Parts**: When both $P_{\text{prev}}$ and $P_{\text{next}}$ are
-    fold-eligible `"text"` parts, concatenate them in place (`P_prev.text += P_next.text`).
-  - **Adjacent Unsigned `"reasoning"` Parts**: When both $P_{\text{prev}}$ and $P_{\text{next}}$
-    are fold-eligible `"reasoning"` parts, concatenate them in place
-    (`P_prev.reasoning.text += P_next.reasoning.text`) **if and only if** both have
-    `reasoning.text` defined (neither is a redacted textless block), neither has
-    `reasoning.signature` set, and
-    `(P_prev.reasoning.summarized ?? false) === (P_next.reasoning.summarized ?? false)`. Any
-    `"reasoning"` part with a `signature` or omitted `text` remains a distinct `ContentPart`.
-  - **All Other Variants**: `data`, media (`image`, `audio`, `video`, `document`), and `action`
-    parts never fold and remain distinct items in encounter order. Standalone `{ action }`
-    declaration events automatically append `{ type: "action", action_id }` to `Step.content[]`
-    if not already present, and append their `event_id` to `Action.event_ids`.
-- **`Action` & `CanonicalAction` In-Place Updates**: Every declared `Action` is retained in
-  `actions_by_id` for the lifetime of the trajectory. Because `action_id` is unique within
-  `trajectory_id`, `R2` updates any number of `{ action }` events for that `action_id` in place
-  using the field-merge semantics above—supporting incremental multi-chunk `output` streaming
-  (folded via `ContentPart` rules) as well as post-hoc `canonical`, `approval`, or `extensions`
-  enrichment events (e.g. `{ shell_command: { exit_code: 0 } }`) even after the action or step
-  has closed.
-- **`truncated_fields` Preservation & Phase 3 Truncation**: Pre-existing `truncated_fields` maps
-  on `AgentMetadata`, `SubagentDefinition`, `ContentPart`, `Action`, `Step`, and `Trajectory`
-  (e.g. from wire-transport size caps or pre-truncated upstream logs) are preserved untouched
-  through Phase 2 (and prevent folding on `ContentPart`), while Phase 3 applies configured inline
-  preview truncation and optional `BlobReference` extraction to any remaining oversized fields.
-- **`Step.metrics` (Snapshot Replacement)**: Within a single `Step`, each non-null scalar
-  token/cost field on an incoming `StepMetrics` replaces the step's prior value for that field
-  (preventing multi-slice overcounting in harnesses like Claude Code that repeat cumulative
-  turn usage on every content slice).
-- **Phase 3 Derived Fields, Truncation, & NDJSON Emission**:
-  1. Populate derived `type` discriminators on every `ContentPart` (inferring media `type` from
-     `source.media_type` prefix `image/*` / `audio/*` / `video/*`, or `"document"` otherwise)
-     and `CanonicalAction` (active union key, or `"mcp_tool"` when only `canonical.mcp` is set).
-  2. Apply inline preview truncation (`TruncationInfo`, recommended `16 KiB` default) and
-     optional `BlobReference` extraction to oversized fields not already in `truncated_fields`.
-  3. Resolve `parent_step_id`, `ancestor_trajectory_ids`, `child_trajectory_ids`, and
-     `trajectory_depth` via an inverted index mapping `Step.event_ids`, `Action.event_ids`, and
-     `Action.action_id` to `step.step_id`.
-  4. Number `Step.step_id` `1..N` in fold order; for Delta branches (`parent_steps_excluded:
-     true`), drop unchanged leading prefix steps `1..p` and set `first_step_id` to the first
-     remaining `step_id` (omitted when `step_count == 0`).
-  5. Resolve `CompactionInfo.step_id_start` and `step_id_end` from `event_id_start`/`end`
-     (header events before Step 1 resolve to `1`).
-  6. Derive `Trajectory.status` when unset from the last step's `stop_reason`: `"completed"` →
-     `"completed"`, `"cancelled"` → `"cancelled"`, `"errored" | "timed_out" | "refused"` →
-     `"failed"`, else `"running"`.
-  7. Compute `Trajectory.{start_time, end_time, step_count, final_metrics}` (falling back to
-     event timestamps for `end_time` only when `step_count == 0`, and preserving explicit
-     `TrajectoryPatch.final_metrics`), plus `Session.{start_time, end_time, final_metrics}`
-     over native steps (`original_trajectory_id == null`) when emitting a `"session"` row.
-  8. Emit `"trajectories"` NDJSON per the [NDJSON ordering invariants](#atifrecord-documentmeta-session-trajectory--in-memory-model): line 1 `MetaRecord` (with `create_time`
-     and recommended `manifest`), optional `SessionRecord`s, `TrajectoryRecord` + ascending
-     `StepRecord` rows, and pass-through `ExtensionRecord` rows.
+## Stream Consolidation Algorithm
 
-</details>
+The **Stream Consolidation Algorithm** deterministically transforms an `"events"` document (`.atif-e.jsonl`) into a consolidated `"trajectories"` document (`.atif.jsonl`) containing the trunk, sibling child trajectories, optional `session` records, and pass-through `extension` records. Concrete Claude Code, Codex CLI, and Cursor CLI translations are illustrated in [Translating Native Harness Formats](./references/harness-examples.md).
 
-### End-to-End Consolidation Walkthrough
+### Phase 1: DAG Linearization
 
-Consider an 8-event `"events"` stream (`session.atif-e.jsonl`, preceded by line 1
-`type: "meta"`) where an agent runs `pytest`, starts an unwanted turn (`ev-5`) that is
-cancelled, and retries from `ev-4` (`branch: { after_event_id: "ev-4" }` on `ev-6`):
+1. **Resolve predecessors and track cursor**:
+   - Preserve `extension` records pass-through.
+   - Accumulate `{ session }` events per `session_id`.
+   - Deduplicate repeated `[trajectory_id, event_id]` events.
+   - Per `trajectory_id`, track current cursor `head` (initially `null`), predecessor links `prev[event_id]`, and displaced tips `(leaf_id, reason?)`:
+     - **Normal payload event** (`trajectory`, `step`, `action`): Link `prev[event_id] = head` and advance `head = event_id`. If `branch` is paired with `trajectory` or `action`, emit a warning and ignore `branch`.
+     - **Branch jump** (`event.branch` standalone or paired with `step`): Resolve `target = branch.after_event_id ?? null` (following any standalone-branch alias). If `after_event_id` is unknown, emit a warning and fall back to linear chaining. Otherwise, if `head != null`, record `(head, branch.reason)` as a displaced tip and set `head = target`. A standalone `branch` aliases its `event_id` to `head` without creating a graph node; a `branch + step` event links `prev[event_id] = head` and advances `head = event_id`.
+2. **Extract trunk**: Walk `prev` backward from the final `head` to `null` and reverse to obtain `trunk = [e_1, ..., e_m]`.
+3. **Extract off-trunk branches**: For each unvisited displaced tip `(leaf_id, branch_reason)` in chronological order:
+   - Walk `prev` backward until reaching `fork_event` (an ancestor on `trunk` or an earlier extracted branch) or `null` (root).
+   - Skip chains containing no `step` or `action` events.
+   - Clone Phase 2 state immediately after `fork_event` (stamping pre-fork steps with `original_trajectory_id` and `original_trajectory_reason`, never leaking post-fork parent events), fold the off-trunk events, and emit a child trajectory with:
+     - `parent_reason`: `branch_reason` if specified, else `"retry"` (single replaced `agent` step) or `"rewind"` (starts with `user` or spans multiple steps)
+     - `trajectory_id`: `"<parent_id>#<parent_reason>-<k>"`
+     - `parent_trajectory_id`: trajectory owning `fork_event` (or trunk when forked from root)
+     - `parent_event_id`: `fork_event` (omitted when forked from root)
+     - `parent_steps_excluded`: `true` in Delta Mode when pre-fork steps exist and the parent is in the same file, else omitted/`false`.
 
-| Event | Payload Summary | Phase 1–3 Consolidation Outcome |
+### Phase 2: Turn State Machine and Event Folding
+
+Each linear event sequence (`trunk` and each child trajectory) is folded by a 3-state turn machine (`IDLE`, `GENERATING`, `OBSERVED`) backed by a trajectory-scoped action index `actions_by_id: Map<string, Action>` and a response index `steps_by_response_id: Map<string, Step>`.
+
+```mermaid
+stateDiagram-v2
+    [*] --> IDLE
+    IDLE --> IDLE : R3 (user / system)
+    IDLE --> GENERATING : R6 (agent / new action)
+    GENERATING --> GENERATING : R7 (merge) / R8 (new turn)
+    GENERATING --> OBSERVED : R2 (action output)
+    OBSERVED --> OBSERVED : R2 / R9 (outputs or metrics)
+    OBSERVED --> GENERATING : R10 (new agent turn)
+    GENERATING --> IDLE : R4 (user / system)
+    OBSERVED --> IDLE : R4 (user / system)
+```
+
+Rules are evaluated in strict precedence order (`R1`, `R2`, `R3`/`R4`, `R5`, `R9`, then `R6`/`R7`/`R8`/`R10`):
+
+| Rule | State | Incoming Event | Condition | Next State | Action |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `R1` | Any | `{ session }` \| `{ trajectory }` | Always | Unchanged | Field-merge into `Session` (`session_id`) or `Trajectory` (`trajectory_id`). |
+| `R2` | Any | `{ action }` | `action_id` in `actions_by_id` | `OBSERVED` if owned by `current_step`, else unchanged | Update existing `Action` in place (see `R2` procedure below). |
+| `R3` | `IDLE` | `{ step }` (`user` \| `system`) | Always | `IDLE` | Append `user`/`system` `Step` (coalescing consecutive `system` compaction boundary + summary events; index declared `actions` in `actions_by_id`). |
+| `R4` | `GENERATING` \| `OBSERVED` | `{ step }` (`user` \| `system`) | Always | `IDLE` | Close `current_step`; append new `user`/`system` `Step` (indexing declared `actions` in `actions_by_id`). |
+| `R5` | Any | `{ step }` (`agent`) \| `{ action }` | `response_id` matches existing `step_k` (and not `R2`) | Unchanged | Merge event directly into `step_k` and index newly declared `actions` (handles out-of-order `response_id`-tagged events). |
+| `R9` | Any | `{ step }` (`agent`) | Event has **only** `metrics` and/or `stop_reason` | Unchanged | Attach late metrics/stop_reason to current or most recent agent `Step` (no-op if none exists). |
+| `R6` | `IDLE` | `{ step }` (`agent`) \| `{ action }` (new) | Has content, actions, or non-empty turn | `GENERATING` | Open new `Step(source="agent")` as `current_step`, merge event, and index declared `actions`. |
+| `R7` | `GENERATING` | `{ step }` (`agent`) \| `{ action }` (new) | (`response_id` matches `current_step`) OR (`response_id` unset AND `current_step.stop_reason` unset) | `GENERATING` | Coalesce into `current_step`: append `event_id`, append `content` (synthesizing `{ type: "action", action_id }` for standalone `{ action }`), upsert `actions`, snapshot-replace `metrics`. |
+| `R8` | `GENERATING` | `{ step }` (`agent`) \| `{ action }` (new) | (`response_id` differs from `current_step`) OR (`response_id` unset AND `current_step.stop_reason` set) | `GENERATING` | Close `current_step`; open new `Step(source="agent")`, merge event, and index declared `actions`. |
+| `R10` | `OBSERVED` | `{ step }` (`agent`) \| `{ action }` (new) | New model `content`, new `response_id`, or new `action_id` after `current_step`'s actions resolved | `GENERATING` | Close `current_step`; open new `Step(source="agent")`, merge event, and index declared `actions`. |
+
+#### `R2` Action Update Procedure
+
+1. **In-place merge**: Look up the existing `Action` in `actions_by_id` (retaining the entry in `actions_by_id` for the lifetime of the trajectory). Append `event_id` to `Action.event_ids`, append `output` parts (per [`ContentPart` Folding Rules](#field-level-merge-and-folding-rules)), and field-merge present `canonical`, `approval`, `extensions`, and sticky `errored` fields.
+2. **Timestamp advancement**: When the incoming event carries `action.end_time` or `output` updates (defaulting `incoming_end_time` to `event.timestamp` if `action.end_time` is omitted), set `Action.end_time = max(Action.end_time, incoming_end_time)` and advance the owning step's `end_time = max(step.end_time, Action.end_time)`. Metadata-only enrichments without `end_time` or `output` leave existing `end_time` values unchanged.
+3. **State transition**: If the updated `Action` is owned by `current_step`, transition to `OBSERVED`. *(Detached background tasks close at launch with their launch output; later polls and completions are distinct actions correlated by `task_id`.)*
+
+#### Live Incremental Consolidation
+
+Phase 2 MAY fold `event` records incrementally for live UIs and online-RL consumers. Because a later `event.branch` jump can retroactively move prior trunk events onto an off-trunk branch in Phase 1, live snapshots are provisional until stream close or checkpoint finalization; persisted `.atif.jsonl` files (carrying derived headers and `meta.manifest`) are batch-written on finalization.
+
+### Field-Level Merge and Folding Rules
+
+#### Field-Merge Operators (`R1`, `R2`, `R5`–`R10`)
+
+Consolidation uses deterministic typed merge operators (never arbitrary recursive deep-merge):
+
+- **Scalars, unkeyed arrays, and opaque JSON objects** (`status`, `title`, `tags`, `arguments`, `parameters`, etc.): Last non-null value replaces the prior value.
+- **Keyed `*Definition[]` catalog arrays** (`AgentMetadata.{skills, mcp_servers, subagents, tools}`, `Trajectory.environments`): Upsert by `name`—when incoming entries specify `name`, field-merge into an existing entry with the same `name` or append if new; when incoming entries omit `name`, replace the array.
+- **Typed sub-structs** (`Session`, `Trajectory`, `AgentMetadata`, `ModelMetadata`, `EnvironmentDefinition`, `SandboxConfig`, `VcsInfo`, `Action`, `ApprovalInfo`, and a matching-variant `CanonicalAction` sub-struct): Merge present non-null fields (omitted fields stay intact). If an incoming `CanonicalAction` selects a different variant, it replaces the prior variant so at most one semantic variant remains populated.
+- **Keyed maps** (`extensions`, `truncated_fields`): Top-level key replace (`target[key] = incoming[key]`, with no recursive merge inside a namespace object).
+- **Append-only streams** (`Step.content`, `Step.citations`, `Action.output`, `event_ids`): Append in encounter order, applying the `ContentPart` folding rules below.
+
+#### `ContentPart` Folding (`Step.content` and `Action.output`)
+
+1. **Non-folding guard**: A `ContentPart` `P` is **fold-eligible** only when both `P.truncated_fields` and `P.extensions` are unset or empty (`undefined` or `{}`). If either `prev_part` or `next_part` has `truncated_fields` or `extensions` populated, consolidators MUST NOT fold them—append `next_part` as a distinct `ContentPart`.
+2. **Adjacent `"text"` parts**: When both `prev_part` and `next_part` are fold-eligible `"text"` parts, concatenate in place (`prev_part.text += next_part.text`).
+3. **Adjacent unsigned `"reasoning"` parts**: When both `prev_part` and `next_part` are fold-eligible `"reasoning"` parts, concatenate in place (`prev_part.reasoning.text += next_part.reasoning.text`) if and only if both have `reasoning.text` defined (neither is redacted), neither has `reasoning.signature` set, and `(prev_part.reasoning.summarized ?? false) === (next_part.reasoning.summarized ?? false)`. Any `"reasoning"` part with `signature` set or `text` omitted remains a distinct `ContentPart`.
+4. **All other variants**: `data`, media (`image`, `audio`, `video`, `document`), and `action` parts never fold and remain distinct in encounter order.
+5. **Standalone `{ action }` declarations**: Automatically append `{ type: "action", action_id }` to `Step.content[]` if not already present, and append the event's `event_id` to `Action.event_ids`.
+
+#### In-Place Action Updates, Pre-Truncation, and Metrics Snapshots
+
+- **`Action` & `CanonicalAction` updates**: Every declared `Action` stays in `actions_by_id` for the lifetime of the trajectory, so `R2` supports multi-chunk `output` streaming and post-hoc `canonical`, `approval`, or `extensions` enrichments (e.g., `{ shell_command: { exit_code: 0 } }`) even after the action or step has closed.
+- **`truncated_fields` preservation**: Pre-existing `truncated_fields` maps on `AgentMetadata`, `SubagentDefinition`, `ContentPart`, `Action`, `Step`, and `Trajectory` are preserved untouched through Phase 2 (and prevent folding on `ContentPart`). Phase 3 applies configured inline truncation and optional `BlobReference` extraction only to remaining oversized fields.
+- **`Step.metrics` snapshot replacement**: Within a single `Step`, each non-null scalar token/cost field on an incoming `StepMetrics` replaces the step's prior value for that field.
+
+### Phase 3: Derived Fields, Truncation, and Emission
+
+1. **Populate derived `type` discriminators**: Set `ContentPart.type` (inferring media `type` from `source.media_type` prefix `image/*`, `audio/*`, `video/*`, or `"document"` otherwise) and `CanonicalAction.type` (active variant key, or `"mcp_tool"` when only `canonical.mcp` is populated).
+2. **Apply truncation and blob offloading**: Apply configured inline preview truncation (`16 KiB` recommended default) and optional `BlobReference` extraction to oversized fields not already in `truncated_fields`.
+3. **Resolve lineage indices**: Compute `parent_step_id`, `ancestor_trajectory_ids`, `child_trajectory_ids`, and `trajectory_depth` using an inverted index mapping `Step.event_ids`, `Action.event_ids`, and `Action.action_id` to `step.step_id`.
+4. **Number steps and trim Delta prefixes**: Number `Step.step_id` `1..N` in fold order. For Delta branches (`parent_steps_excluded: true`), drop unchanged leading prefix steps `1..p` and set `first_step_id` to the first remaining `step_id` (omitted when `step_count == 0`).
+5. **Resolve compaction step ranges**: Resolve `CompactionInfo.step_id_start` and `step_id_end` from `event_id_start`/`event_id_end` (header events before Step 1 resolve to `1`).
+6. **Derive `Trajectory.status`**: When unset, derive from the last step's `stop_reason`: `"completed"` → `"completed"`, `"cancelled"` → `"cancelled"`, `"errored" | "timed_out" | "refused"` → `"failed"`, else `"running"`.
+7. **Compute rollups**: Compute `Trajectory.{start_time, end_time, step_count, final_metrics}` (falling back to event timestamps for `end_time` only when `step_count == 0`, and preserving explicit `TrajectoryPatch.final_metrics`), plus `Session.{start_time, end_time, final_metrics}` over native steps (`original_trajectory_id == null`) when emitting a `session` record.
+8. **Emit `"trajectories"` NDJSON**: Write records obeying [Record Ordering and Self-Containment](#record-ordering-and-self-containment): line 1 `MetaRecord` (with `create_time` and recommended `manifest`), optional `SessionRecord`s, `TrajectoryRecord` + ascending `StepRecord`s, and pass-through `ExtensionRecord`s.
+
+---
+
+## Security Considerations
+
+1. **Archive path traversal and special files**: Readers unpacking `.atif.tar.zst` archives MUST reject entries containing leading `/`, `..` path segments, symbolic links, hard links, or device nodes.
+2. **Bounded-memory streaming and line limits**: Readers MUST support NDJSON lines of at least 16 MiB and SHOULD process body records sequentially rather than materializing entire multi-trajectory files in memory before validation.
+
+---
+
+## Appendix A: End-to-End Consolidation Walkthrough
+
+*This section is non-normative.*
+
+Consider an 8-event `"events"` stream (`session.atif-e.jsonl`, preceded by line 1 `type: "meta"`) where an agent runs `pytest`, starts an unwanted turn (`ev-5`) that is cancelled, and retries from `ev-4` (`branch: { after_event_id: "ev-4" }` on `ev-6`):
+
+| Event | Payload Summary | Phase 1–3 Outcome |
 | :--- | :--- | :--- |
-| **`ev-0`** | `{ trajectory }` (`agent: claude-code`, `cwd: "/workspace"`) | **`R1`**: Populates `traj-1.agent` and `traj-1.environments` (inherited by branches). |
-| **`ev-1`** | `{ step }` (`source: "user"`, `"Run pytest on auth."`) | **`R3`**: Emits **`traj-1` Step 1** (`event_ids: ["ev-1"]`). |
-| **`ev-2`** | `{ step }` (`response_id: "msg_01"`, `reasoning`, `output_tokens: 0`) | **`R6`**: Opens **`traj-1` Step 2** (`GENERATING`). |
-| **`ev-3`** | `{ step }` (`response_id: "msg_01"`, `text` + `Bash` `toolu_01`, `output_tokens: 45`) | **`R7`**: Coalesces into **Step 2**, registers `toolu_01`, snapshot-replaces `metrics`. |
-| **`ev-4`** | `{ action }` (`action_id: "toolu_01"`, `output: "1 passed"`, `exit_code: 0`) | **`R2`**: Attaches `output` and `exit_code: 0` onto `toolu_01` in **Step 2** (`OBSERVED`). |
-| **`ev-5`** | `{ step }` (`response_id: "msg_bad"`, `stop_reason: "cancelled"`) | **Off-trunk**: Extracted into Delta branch **`traj-1#retry-1`** (`parent_step_id: 2`, `parent_steps_excluded: true`, `first_step_id: 3`, **`step_id: 3`**, `status: "cancelled"`). |
-| **`ev-6`** | `{ step }` (**`branch: { after_event_id: "ev-4" }`**, `"All auth tests pass."`, `completed`) | **`R10`**: Resets cursor to `ev-4`, closes Step 2, emits **`traj-1` Step 3**. |
-| **`ev-7`** | `{ trajectory }` (`status: "completed"`) | **`R1` + Phase 3**: Sets `traj-1.status = "completed"` and computes `final_metrics`. |
+| `ev-0` | `{ trajectory }` (`agent: claude-code`, `cwd: "/workspace"`) | `R1`: Populates `traj-1.agent` and `traj-1.environments` (inherited by branches). |
+| `ev-1` | `{ step }` (`source: "user"`, `"Run pytest on auth."`) | `R3`: Emits `traj-1` Step 1 (`event_ids: ["ev-1"]`). |
+| `ev-2` | `{ step }` (`response_id: "msg_01"`, `reasoning`, `output_tokens: 0`) | `R6`: Opens `traj-1` Step 2 (`GENERATING`). |
+| `ev-3` | `{ step }` (`response_id: "msg_01"`, `text` + `Bash` `toolu_01`, `output_tokens: 45`) | `R7`: Coalesces into Step 2, registers `toolu_01`, snapshot-replaces `metrics`. |
+| `ev-4` | `{ action }` (`action_id: "toolu_01"`, `output: "1 passed"`, `exit_code: 0`) | `R2`: Attaches `output` and `exit_code: 0` onto `toolu_01` in Step 2 (`OBSERVED`). |
+| `ev-5` | `{ step }` (`response_id: "msg_bad"`, `stop_reason: "cancelled"`) | Off-trunk: Extracted into Delta branch `traj-1#retry-1` (`parent_step_id: 2`, `parent_steps_excluded: true`, `first_step_id: 3`, `step_id: 3`, `status: "cancelled"`). |
+| `ev-6` | `{ step }` (`branch: { after_event_id: "ev-4" }`, `"All auth tests pass."`, `completed`) | `R10`: Resets cursor to `ev-4`, closes Step 2, emits `traj-1` Step 3. |
+| `ev-7` | `{ trajectory }` (`status: "completed"`) | `R1` + Phase 3: Sets `traj-1.status = "completed"` and computes `final_metrics`. |
 
-Consolidating into `session.atif.jsonl` (`document_type: "trajectories"`) emits line 1 `meta`
-(with optional `manifest`), optional `session`, `traj-1` + Steps 1–3, Delta branch
-`traj-1#retry-1` + Step 3, and any pass-through `extension` rows (complete runnable
-`session.atif-e.jsonl` and `session.atif.jsonl` files are in
-[Harness Examples: Reference End-to-End Consolidation Fixture](./references/harness-examples.md#reference-end-to-end-consolidation-fixture-sessionatif-ejsonl--sessionatifjsonl) and standalone fixtures [`session.atif-e.jsonl`](./examples/session.atif-e.jsonl) / [`session.atif.jsonl`](./examples/session.atif.jsonl)).
-Below is the consolidated `StepRecord` for `traj-1` Step 2:
+Complete runnable fixtures are available at [`session.atif-e.jsonl`](./examples/session.atif-e.jsonl) and [`session.atif.jsonl`](./examples/session.atif.jsonl) (and annotated in [Harness Examples](./references/harness-examples.md#reference-end-to-end-consolidation-fixture)). Consolidated `StepRecord` for `traj-1` Step 2:
 
 ```json
 {
@@ -1020,390 +1259,35 @@ Below is the consolidated `StepRecord` for `traj-1` Step 2:
 
 ---
 
-## Truncation, Blobs, Metrics, & Extensions
+## Appendix B: Canonical In-Memory SDK Model
 
-### Inline Truncation (`TruncationInfo`) & Content-Addressed Blobs (`BlobReference`)
-
-ATIF v2.0 standardizes one uniform mechanism (`truncated_fields?: Record<string, TruncationInfo>`)
-across `"events"` and `"trajectories"` documents so analytical queries and viewers can inspect
-readable inline content without fetching external blobs on every query while keeping document
-sizes bounded:
+*This section is a non-wire SDK convention. Wire serializers MUST still emit NDJSON `AtifRecord` lines, never a single nested JSON document.*
 
 ```ts
-export interface TruncationInfo {
-  original_bytes?: number;               // Original un-truncated UTF-8 or serialized JSON byte length
-  strategy?: "head" | "tail" | "head_tail";
-  blob?: BlobReference;                  // Full payload reference; omitted when lossily truncated without a blob store
+export interface TrajectoryWithSteps {
+  type: "trajectory";
+  session_id?: string;
+  trajectory_id: string;
+  trajectory: Trajectory;
+  steps: Step[];
 }
 
-export interface BlobReference {
-  digest?: Sha256Urn;                    // `"urn:sha256:<64-lowercase-hex>"`
-  uri?: string;                          // Archive/file relative URI (`"blobs/sha256/4a/<hex>"`) or external URL
-  media_type: string;                    // IANA MIME type (`"text/plain"`, `"application/json"`, `"image/png"`, etc.)
-  size_bytes?: number;                   // Exact unencoded payload byte length
-  filename?: string;
+export interface AtifEventsDocument {
+  meta: DocumentMeta;
+  events: EventRecord[];
+  extensions?: ExtensionRecord[];
+}
+
+export interface AtifTrajectoriesDocument {
+  meta: DocumentMeta;
+  sessions?: SessionRecord[];
+  trajectories: TrajectoryWithSteps[];
+  extensions?: ExtensionRecord[];
 }
 ```
 
-1. **Consolidation-Time Truncation by Default (with Optional Pre-Truncated `"events"`)**: On
-   local disk, `"events"` producers **SHOULD** emit untruncated payloads so capture stays an
-   $O(1)$ append and Phase 3 truncates after folding; producers **MAY** pre-populate
-   `truncated_fields` under transport size caps (Phase 2 preserves pre-truncated parts unfolded).
-2. **Inline Preview Invariant**: When a field exceeds an inline threshold (recommended default:
-   **16 KiB** for text/JSON, **0 bytes** for binary media), the inline field retains a valid
-   preview of its normal type (e.g. a UTF-8 excerpt in `system_instructions`, `part.text`, or
-   `arguments.content`, or a sampled JSON prefix in `data` / `arguments`).
-3. **Local Field Keying (No Array-Index Paths)**: `truncated_fields` lives on the immediate
-   owning object (`AgentMetadata`, `SubagentDefinition`, `ContentPart`, `Action`, `Step`,
-   `Trajectory`), keyed by local field path (e.g. `"system_instructions"`, `"text"`,
-   `"reasoning.text"`, `"arguments.content"`, `"data.stdout"`), so Stream Consolidation never
-   has to rewrite array indices.
-4. **Lossy Truncation & Lossless Blob Offloading**: `TruncationInfo.blob` points to the full
-   payload when archived (`text/plain` for string targets, `application/json` for structured
-   JSON targets) and is omitted for lossy truncation. Binary media parts continue to use
-   `ContentPart.source` (`MediaSource`) directly, matching ATIF v1.x.
-5. **`.atif.tar.zst` Archive Layout**: For portable single-file blob packaging (trading away
-   incremental line reading), a Zstandard-compressed POSIX `ustar`/`pax` archive MUST place
-   `atif.jsonl` as its **first archive entry** (for immediate `meta.manifest` inspection),
-   alongside optional `atif-e.jsonl` and `blobs/sha256/<first-2-hex>/<64-hex>`. Relative
-   `BlobReference.uri` paths resolve against the archive root or the `.atif.jsonl` parent
-   directory. Readers MUST reject leading `/`, `..`, symlinks, hardlinks, and device nodes.
-
-### `StepMetrics` and `FinalMetrics`
-
-ATIF v2.0 preserves ATIF v1.x's **Inclusive Token Accounting Invariant**:
-- **`input_tokens`** is TOTAL input/prompt tokens (**inclusive** of `cache_read_tokens` and
-  `cache_write_tokens`): `input_tokens >= (cache_read_tokens ?? 0) + (cache_write_tokens ?? 0)`.
-- **`output_tokens`** is TOTAL output/completion tokens (**inclusive** of `reasoning_tokens`):
-  `output_tokens >= (reasoning_tokens ?? 0)`.
-
-Provider-specific formulas for normalizing Anthropic, OpenAI, Gemini, OpenCode, and OpenHands
-token payloads to this invariant are specified in
-**[Migration & Extensions: Cross-Provider Token & Cost Normalization](./references/migration-and-extensions.md#cross-provider-token--cost-normalization)**.
-
-```ts
-export interface StepMetrics {
-  input_tokens?: number;                 // Total input tokens (inclusive of cache_read + cache_write)
-  output_tokens?: number;                // Total output tokens (inclusive of reasoning_tokens)
-  cache_read_tokens?: number;            // Prompt cache hits (`cached_tokens` in ATIF v1.x)
-  cache_write_tokens?: number;           // Prompt cache creation tokens (e.g. `cache_creation_input_tokens`)
-  reasoning_tokens?: number;             // Billed thinking/reasoning subset of `output_tokens`
-  cost_usd?: number;
-  cost_source?: "reported" | "estimated" | string;
-
-  retry_count?: number;                  // Low-level HTTP/SDK transport retries (e.g. 429/5xx) within this step
-  time_to_first_token_ms?: number;       // Request sent to first model token received (streaming calls)
-  duration_ms?: number;                  // Total LLM inference wall time in ms (streaming decode = `duration_ms - time_to_first_token_ms`)
-  response_id?: string;                  // Provider inference ID (e.g. Anthropic `message.id`, OpenAI `response_id`)
-
-  prompt_token_ids?: number[];           // Preserved from ATIF v1.3/v1.4 for RL training rollouts
-  completion_token_ids?: number[];
-  logprobs?: number[];
-
-  granular?: GranularTokenUsage[];
-  extensions?: Extensions;
-}
-
-export interface FinalMetrics {
-  total_input_tokens?: number;
-  total_output_tokens?: number;
-  total_cache_read_tokens?: number;
-  total_cache_write_tokens?: number;
-  total_reasoning_tokens?: number;
-  total_cost_usd?: number;
-  cost_source?: "reported" | "estimated" | string;
-  total_steps?: number;
-  total_llm_calls?: number;              // Across serialized `"step"` rows and tool-internal `Action.metrics`
-  total_duration_ms?: number;            // `end_time - start_time` in milliseconds
-  granular?: GranularTokenUsage[];
-  extensions?: Extensions;
-}
-
-export interface GranularTokenUsage {
-  model_name?: string;
-  modality?: Modality;
-  input_tokens?: number;
-  output_tokens?: number;
-  cache_read_tokens?: number;
-  cache_write_tokens?: number;
-  reasoning_tokens?: number;
-  cost_usd?: number;
-}
-```
-
-<details>
-<summary><strong>Changes from ATIF v1.x: <code>Metrics</code> &amp; <code>FinalMetrics</code> &rarr; <code>StepMetrics</code> &amp; <code>FinalMetrics</code></strong></summary>
-
-| ATIF v1.x Field | Disposition in v2.0 | ATIF v2.0 Field / Replacement | Rationale |
-| :--- | :--- | :--- | :--- |
-| `Metrics.prompt_tokens` / `FinalMetrics.total_prompt_tokens` | **Changed (Renamed)** | `StepMetrics.input_tokens` / `FinalMetrics.total_input_tokens` | Standardized on `input_tokens` / `output_tokens` across modern multimodal APIs while strictly preserving the v1.x inclusive token invariant. |
-| `Metrics.completion_tokens` / `FinalMetrics.total_completion_tokens` | **Changed (Renamed)** | `StepMetrics.output_tokens` / `FinalMetrics.total_output_tokens` | Paired with `input_tokens`; remains inclusive of `reasoning_tokens`. |
-| `Metrics.cached_tokens` / `FinalMetrics.total_cached_tokens` | **Changed (Renamed)** | `StepMetrics.cache_read_tokens` / `FinalMetrics.total_cache_read_tokens` | Renamed to `cache_read_tokens` to disambiguate cache hits from `cache_write_tokens` (prompt cache creation). |
-| `Metrics.cost_usd` / `FinalMetrics.total_cost_usd` | **Kept** | `StepMetrics.cost_usd` / `FinalMetrics.total_cost_usd` | Unchanged. |
-| `FinalMetrics.total_steps` | **Kept** | `FinalMetrics.total_steps` | Unchanged. |
-| `Metrics.prompt_token_ids`, `completion_token_ids`, `logprobs` | **Kept** | `StepMetrics.prompt_token_ids`, `completion_token_ids`, `logprobs` | Preserved verbatim for RL training rollouts. |
-| `Metrics.extra` / `FinalMetrics.extra` | **Changed** | `StepMetrics.extensions` / `FinalMetrics.extensions` | Promoted cache write, reasoning tokens, latency, and response IDs; namespaced custom keys. |
-| *(New in v2.0)* | **Added** | `cache_write_tokens`, `reasoning_tokens`, `cost_source`, `retry_count`, `time_to_first_token_ms`, `duration_ms`, `response_id`, `total_llm_calls`, `total_duration_ms`, `granular` | Captures prompt cache creation, thinking token breakdown, transport retries, LLM inference latency, and multimodal token usage. |
-
-</details>
-
-### Unified Extensions Model (`extensions`, `ExtensionRecord`, & `CanonicalExtension`)
-
-ATIF v2.0 replaces v1.x's flat `extra` dict with one **`namespace` + object payload** model
-(keyed by reverse-DNS domain such as `"com.anthropic.claude-code"` or RFC 3986 URI) across
-three layers:
-
-1. **Inline payload-level `extensions?: Extensions`**: Present on every record payload
-   (`DocumentMeta`, `Session`/`SessionPatch`, `Trajectory`/`TrajectoryPatch`, `Step`,
-   `TrajectoryEvent`) and first-class nested entity (`ContentPart`, `CompactionInfo`, `Action`,
-   `ApprovalInfo`, `CanonicalAction`, metrics, and agent/environment catalog objects)—omitted
-   on the thin `AtifRecord` envelope and small leaf value structs (`DocumentManifest`,
-   `ReasoningContent`, `MediaSource`, `BlobReference`, `TruncationInfo`, `GranularTokenUsage`,
-   `CanonicalMcpProvenance`, and individual `Canonical*` variants).
-2. **Standalone `"extension"` NDJSON rows (`ExtensionRecord`)**: Appendable at EOF in both
-   `"events"` and `"trajectories"` documents (preserved pass-through by consolidation), carrying
-   `{ namespace, data }` for out-of-band records such as `"com.example.annotation"`.
-3. **Canonical Action extensions (`CanonicalAction.extension`)**: Domain-specific semantic actions
-   using `type: "extension"` and `CanonicalExtension { namespace, data? }` ([Canonical Actions Catalog](./references/canonical-actions.md)).
-
-Official `com.harborframework.*` namespaces (full schemas in
-[Migration & Extensions: Official Standardized `com.harborframework.*` Extension Namespaces](./references/migration-and-extensions.md#official-standardized-comharborframework-extension-namespaces)):
-
-| Namespace Key | Placement | Standardized Fields |
-| :--- | :--- | :--- |
-| **`"com.harborframework.evaluation"`** | `Trajectory`, `Session` | `reward`, `correct`, `verdict` (`"pass" \| "fail" \| "error" \| "unknown"`), `benchmark`, `task_id`, `trial_id`, `verifier_version`, `rollout_rank`, `breakdown` |
-| **`"com.harborframework.rl"`** | `Trajectory`, `Step` | • **On `Trajectory`**: `prompt_id`, `group_index`, `total_reward`, `gamma`, `masked_out`, `target_policy_versions`<br>• **On `Step`**: `reward`, `done`, `policy_version`, `assistant_masks`, `env_tokens`, `env_masks`, `prefill_routed_experts` |
-| **`"com.harborframework.v1"`** | Any container | `schema_version`, `omitted_session_id`, `omitted_trajectory_id`, `llm_call_count`, `message_was_string`, `continued_trajectory_ref`, `subagent_trajectory_ref`, `extra`, `tool_call_extra`, `observation_extra` (for lossless `v1 <-> v2` round-tripping) |
+SDKs MAY additionally expose convenience text getters such as `step.message_text` and `action.output_text` that join `"text"` parts from `Step.content[]` and `Action.output[]`.
 
 ---
 
-## Agent, Model, Tool, & Environment Metadata
-
-### Harness & Environment Configuration
-
-`AgentMetadata`, `ModelMetadata`, MCP-aligned `ToolDefinition`, and `EnvironmentDefinition`
-capture the full harness configuration and runtime environment(s) active during a trajectory:
-
-```ts
-export interface AgentMetadata {
-  name: string;                          // e.g. `"claude-code"`, `"codex-cli"`, `"terminus-2"`
-  version?: string;
-  role?: string;                         // Multi-agent role (e.g. `"coordinator"`, `"reviewer"`)
-  identifier?: ArdUrn | string;
-  model?: ModelMetadata;
-  system_instructions?: string;          // Retains inline preview when truncated
-  skills?: SkillDefinition[];
-  mcp_servers?: McpServerDefinition[];
-  subagents?: SubagentDefinition[];
-  tools?: ToolDefinition[];              // MCP-aligned tool schemas (replaces v1.x `tool_definitions`)
-  truncated_fields?: Record<string, TruncationInfo>;
-  extensions?: Extensions;
-}
-
-export interface ModelMetadata {
-  name?: string;                         // e.g. `"claude-sonnet-4-5"`, `"gpt-5"`, `"gemini-2.5-pro"`
-  provider?: string;                     // e.g. `"anthropic"`, `"openai"`, `"google"`, `"vertex"`
-  version?: string;
-  reasoning_effort?: "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | string;
-  reasoning_budget?: number;             // Numeric thinking token budget/ratio (maps numeric v1.x `reasoning_effort`)
-  context_window_tokens?: number;
-  supported_modalities?: Modality[];
-  parameters?: Record<string, unknown>;  // e.g. `temperature`, `top_p`, `max_output_tokens`
-  identifier?: ArdUrn | string;
-  extensions?: Extensions;
-}
-
-/** Provider-neutral tool schema aligned with the Model Context Protocol (MCP) `Tool` spec (`snake_case`). */
-export interface ToolDefinition {
-  name: string;                          // Matches `Action.name` (MCP `Tool.name`; v1.x `function.name`)
-  title?: string;                        // Human-readable UI title (MCP `Tool.title`)
-  description?: string;                  // Natural-language description (MCP `Tool.description`)
-  input_schema?: Record<string, unknown>;// JSON Schema for input parameters (MCP `Tool.inputSchema`)
-  output_schema?: Record<string, unknown>;// Optional JSON Schema for structured output (MCP `Tool.outputSchema`)
-  annotations?: Record<string, unknown>; // MCP hints (`read_only_hint`, `destructive_hint`, `idempotent_hint`, `open_world_hint`)
-  executor?: ActionExecutor;             // Default execution plane for calls to this tool (`Action.executor` may override)
-  mcp_server?: string;                   // Originating `McpServerDefinition.name` when provided via MCP
-  identifier?: ArdUrn | string;
-  extensions?: Extensions;
-}
-
-export interface EnvironmentDefinition {
-  name?: string;                         // Local key referenced by `Action.environment_name` (optional if single-env; required when >1)
-  os?: string;                           // e.g. `"linux"`, `"macos"`, `"windows"`
-  os_version?: string;
-  arch?: string;                         // e.g. `"x86_64"`, `"arm64"`
-  cwd?: string;
-  shell?: string;
-  identifier?: ArdUrn | string;          // Optional ARD URN for the environment image/template
-  sandbox?: {
-    type?: string;                       // e.g. `"docker"`, `"seatbelt"`, `"landlock"`, `"daytona"`, `"modal"`
-    image?: string;
-    network_restricted?: boolean;
-    filesystem_restricted?: boolean;
-    writable_roots?: string[];
-    approval_mode?: string;              // e.g. `"on-request"`, `"never"`, `"auto-edit"`
-    extensions?: Extensions;
-  };
-  vcs?: {
-    system?: "git" | "jj" | "hg" | "perforce" | "other" | string;
-    repo_uri?: string;
-    root_dir?: string;
-    branch?: string;
-    commit?: string;
-    dirty?: boolean;
-    diff?: BlobReference;                // Optional uncommitted working-tree diff patch
-    extensions?: Extensions;
-  };
-  extensions?: Extensions;
-}
-```
-
-### Resource Identifiers (`ArdUrn`), Auxiliary Catalog, & Common Scalar Types
-
-Every catalog entity (`AgentMetadata`, `ModelMetadata`, `ToolDefinition`, `EnvironmentDefinition`,
-`SkillDefinition`, `McpServerDefinition`, and `SubagentDefinition`)—as well as `Action.uri` and
-`identifier` / `*_identifier` provenance fields in
-[Canonical Actions Catalog](./references/canonical-actions.md)—includes
-an optional `identifier?: ArdUrn | string` field so trajectories captured across different
-harnesses can join on a canonical resource key rather than raw vendor display strings. When
-populated, `identifier` SHOULD use the 5-segment **Agentic Resource Discovery (ARD)** URN format
-defined by the [AI Catalog specification][ai-catalog]:
-`urn:air:<publisher>:<namespace>:<name>` (for example,
-`urn:air:anthropic:models:claude-sonnet-4-5`, `urn:air:github:mcp:github-mcp-server`, or
-`urn:air:harbor:skills:pytest-debugging`, using standard namespaces `runtimes`, `agents`,
-`models`, `tools`, `skills`, `mcp`, and `environments`).
-
-<details>
-<summary><strong>Leaf Catalog Schemas (<code>SkillDefinition</code>, <code>McpServerDefinition</code>, <code>SubagentDefinition</code>) &amp; Scalar Type Aliases</strong></summary>
-
-```ts
-export interface SkillDefinition {
-  name: string;
-  description?: string;
-  version?: string;
-  uri?: string;                          // Path or URI to skill definition (e.g. `SKILL.md`)
-  identifier?: ArdUrn | string;
-  type?: string;
-  source?: BlobReference;                // Optional archived skill bundle/file
-  extensions?: Extensions;
-}
-
-export interface McpServerDefinition {
-  name: string;
-  transport?: "stdio" | "sse" | "streamable_http" | "in_process" | string;
-  uri?: string;
-  command?: string;
-  args?: string[];
-  version?: string;
-  identifier?: ArdUrn | string;
-  tools?: string[];                      // Tool names exposed by this MCP server
-  extensions?: Extensions;
-}
-
-export interface SubagentDefinition {
-  name: string;
-  description?: string;
-  model_name?: string;
-  system_instructions?: string;
-  allowed_tools?: string[];
-  identifier?: ArdUrn | string;
-  truncated_fields?: Record<string, TruncationInfo>;
-  extensions?: Extensions;
-}
-
-export type Timestamp = string;          // RFC 3339 UTC timestamp string (e.g. `"2026-10-30T18:00:00Z"`)
-export type Sha256Urn = `urn:sha256:${string}`;
-export type ArdUrn = `urn:air:${string}` | string; // Recommended Agentic Resource Discovery URN (`urn:air:<publisher>:<ns>:<name>`)
-export type Modality = "text" | "image" | "audio" | "video" | "document" | string;
-export type Extensions = Record<string, Record<string, unknown>>; // Reverse-DNS or URL-keyed map
-export type DocumentType = "events" | "trajectories";
-export type AtifRecordType = "meta" | "event" | "session" | "trajectory" | "step" | "extension";
-```
-
-</details>
-
-<details>
-<summary><strong>Changes from ATIF v1.x: <code>Agent</code> &amp; <code>ToolDefinition</code> &rarr; <code>AgentMetadata</code> &amp; <code>ToolDefinition</code></strong></summary>
-
-| ATIF v1.x Field | Disposition in v2.0 | ATIF v2.0 Field / Replacement | Rationale |
-| :--- | :--- | :--- | :--- |
-| `Agent.name` (`str`) | **Kept** | `AgentMetadata.name: string` | Unchanged. |
-| `Agent.version` (`str`, required in v1.x) | **Changed (Optional)** | `AgentMetadata.version?: string` | Made optional because subagents and lightweight custom harnesses do not always report a semver string. |
-| `Agent.model_name` (`str`) | **Changed** | `AgentMetadata.model.name?: string` (`ModelMetadata`) | Grouped with `provider`, `version`, `reasoning_effort`, `reasoning_budget`, and `parameters` inside `ModelMetadata`. |
-| `Agent.tool_definitions` (`list[dict]`, OpenAI `{ type: "function", function: ... }`) | **Changed (MCP-Aligned)** | `AgentMetadata.tools?: ToolDefinition[]` | Renamed to `tools` (matching `skills`, `mcp_servers`, `subagents`) and flattened to the provider-neutral MCP `Tool` schema (`name`, `title`, `description`, `input_schema`, `output_schema`, `annotations`). |
-| `Agent.extra` (`dict[str, Any]`) | **Changed** | `AgentMetadata.extensions?: Extensions` | Replaced flat `extra` with namespaced `extensions` after promoting system instructions, skills, MCP servers, and environment metadata. |
-| `function.name` (`str`) | **Kept (Flattened)** | `ToolDefinition.name: string` | Unwrapped from OpenAI `function` envelope to match MCP `Tool.name`. |
-| `function.description` (`str`) | **Kept (Flattened)** | `ToolDefinition.description?: string` | Unwrapped to match MCP `Tool.description`. |
-| `function.parameters` (`dict[str, Any]`) | **Changed (Renamed)** | `ToolDefinition.input_schema?: Record<string, unknown>` | Aligned with MCP `Tool.inputSchema` (paired with `output_schema` for MCP `Tool.outputSchema`). |
-| *(New in v2.0)* | **Added** | `AgentMetadata.role`, `identifier`, `system_instructions`, `skills`, `mcp_servers`, `subagents`, `truncated_fields`, `ToolDefinition.{title, output_schema, annotations, executor, mcp_server}`, `EnvironmentDefinition` (`Trajectory.environments[]`) | Captures complete agent harness configuration (system prompt, skills, MCP servers, subagents, MCP tool annotations/output schemas/default executors, and one or more runtime environments/sandboxes/VCS states) as first-class typed fields. |
-
-</details>
-
----
-
-[^revisions]: Key ATIF v1.x incremental additions include multimodal & subagent extensions ([#549][gh-549]), context management conventions ([#1486][gh-1486]), and audio / latest schema updates ([#2605][gh-2605]).
-[^streaming]: Harbor streaming & converter issues/PRs: incremental file rewrites on timeouts/crashes ([#2618][gh-2618], [#3864][gh-3864]); post-hoc stream converters ([#3395][gh-3395], [#3777][gh-3777]); preserving native source event IDs ([#1210][gh-1210]); and continuous rollout streaming for online RL ([#3646][gh-3646], [#3649][gh-3649]).
-[^dag]: Non-linear execution & multi-agent issues/PRs: `parentUuid` / `parentId` trees, `thread_rolled_back`, and `forked_from_id` rewinds/forks ([#873][gh-873], [#882][gh-882], [#1210][gh-1210], [#1868][gh-1868]); concurrent subagents ([#1209][gh-1209], [#2366][gh-2366], [#3111][gh-3111], [#3435][gh-3435], [#3512][gh-3512]); and Best-of-$N$ candidate rollouts ([#2343][gh-2343]).
-[^compaction]: Context compaction & continuation issues/PRs: in-session compaction capture ([#1844][gh-1844], [#3513][gh-3513]); multi-file `continued_trajectory_ref` rollover ([#239][gh-239], [#1352][gh-1352]); and `step.extra.context_management` conventions ([#1486][gh-1486]).
-[^actions]: Tool execution & observation issues/PRs: per-call execution timing ([#2790][gh-2790]); structured and multimodal tool outputs ([#3467][gh-3467]); and error-only or cancelled tool responses ([#3195][gh-3195], [#3211][gh-3211], [#3745][gh-3745], [#3746][gh-3746]).
-[^provenance]: Tool, MCP server, and skill provenance issues/PRs: [#2183][gh-2183], [#2218][gh-2218], [#2948][gh-2948], [#2951][gh-2951], [#3558][gh-3558], and [#3563][gh-3563].
-[^payloads]: Large inline payload & metadata-inspection issues/PRs: batch ingestion OOMs and event-loop stalls ([#2395][gh-2395], [#2691][gh-2691], [#2694][gh-2694]); and summary metadata inspection without full-file parsing ([#2244][gh-2244], [#2775][gh-2775]).
-[^storage]: Remote object storage vs. local filesystem path assumptions: [#2244][gh-2244], [#3533][gh-3533], and [#3789][gh-3789].
-[^context]: Harness, environment, capture provenance, and metrics issues/PRs: skills, MCP servers, subagents, and system instructions ([#1921][gh-1921]); OS, `cwd`, sandbox, and VCS state ([#1210][gh-1210]); host/proxy capture provenance ([#3477][gh-3477], [#3537][gh-3537]); and cache/reasoning/latency/error metrics ([#1478][gh-1478]).
-[^survey]: Surveyed across 30 Harbor converters and external integrations including [NVIDIA NeMo Relay `AtifStepExtra`][nemo-atif], [Arize Phoenix][phoenix-atif] ([#3651][gh-3651]), `harbor-atif2otel` ([#2000][gh-2000]), Langfuse ([#3042][gh-3042]), and [Letta][letta-trajectory].
-
-[rfc-0001]: https://github.com/harbor-framework/harbor/blob/main/rfcs/0001-trajectory-format.md
 [ai-catalog]: https://ai-catalog.io/spec/
-[nemo-atif]: https://docs.nvidia.com/nemo/relay/reference/api/rust-library-reference/nemo-relay/observability/atif
-[phoenix-atif]: https://arize.com/docs/phoenix/tracing/how-to-tracing/importing-and-exporting-traces/importing-atif-trajectories
-[letta-trajectory]: https://github.com/letta-ai/trajectory
-[skyrl-harbor]: https://github.com/NovaSky-AI/SkyRL/tree/main/examples/train_integrations/harbor
-[gh-239]: https://github.com/harbor-framework/harbor/issues/239
-[gh-549]: https://github.com/harbor-framework/harbor/pull/549
-[gh-873]: https://github.com/harbor-framework/harbor/issues/873
-[gh-882]: https://github.com/harbor-framework/harbor/pull/882
-[gh-1209]: https://github.com/harbor-framework/harbor/issues/1209
-[gh-1210]: https://github.com/harbor-framework/harbor/issues/1210
-[gh-1352]: https://github.com/harbor-framework/harbor/pull/1352
-[gh-1478]: https://github.com/harbor-framework/harbor/pull/1478
-[gh-1486]: https://github.com/harbor-framework/harbor/pull/1486
-[gh-1844]: https://github.com/harbor-framework/harbor/pull/1844
-[gh-1868]: https://github.com/harbor-framework/harbor/pull/1868
-[gh-1921]: https://github.com/harbor-framework/harbor/pull/1921
-[gh-2000]: https://github.com/harbor-framework/harbor/pull/2000
-[gh-2183]: https://github.com/harbor-framework/harbor/issues/2183
-[gh-2218]: https://github.com/harbor-framework/harbor/pull/2218
-[gh-2244]: https://github.com/harbor-framework/harbor/pull/2244
-[gh-2343]: https://github.com/harbor-framework/harbor/issues/2343
-[gh-2366]: https://github.com/harbor-framework/harbor/pull/2366
-[gh-2395]: https://github.com/harbor-framework/harbor/pull/2395
-[gh-2605]: https://github.com/harbor-framework/harbor/pull/2605
-[gh-2618]: https://github.com/harbor-framework/harbor/pull/2618
-[gh-2691]: https://github.com/harbor-framework/harbor/issues/2691
-[gh-2694]: https://github.com/harbor-framework/harbor/pull/2694
-[gh-2775]: https://github.com/harbor-framework/harbor/pull/2775
-[gh-2790]: https://github.com/harbor-framework/harbor/pull/2790
-[gh-2948]: https://github.com/harbor-framework/harbor/issues/2948
-[gh-2951]: https://github.com/harbor-framework/harbor/pull/2951
-[gh-3042]: https://github.com/harbor-framework/harbor/issues/3042
-[gh-3111]: https://github.com/harbor-framework/harbor/pull/3111
-[gh-3195]: https://github.com/harbor-framework/harbor/issues/3195
-[gh-3211]: https://github.com/harbor-framework/harbor/pull/3211
-[gh-3395]: https://github.com/harbor-framework/harbor/pull/3395
-[gh-3435]: https://github.com/harbor-framework/harbor/pull/3435
-[gh-3467]: https://github.com/harbor-framework/harbor/pull/3467
-[gh-3477]: https://github.com/harbor-framework/harbor/issues/3477
-[gh-3512]: https://github.com/harbor-framework/harbor/issues/3512
-[gh-3513]: https://github.com/harbor-framework/harbor/pull/3513
-[gh-3533]: https://github.com/harbor-framework/harbor/issues/3533
-[gh-3537]: https://github.com/harbor-framework/harbor/issues/3537
-[gh-3558]: https://github.com/harbor-framework/harbor/issues/3558
-[gh-3563]: https://github.com/harbor-framework/harbor/pull/3563
-[gh-3646]: https://github.com/harbor-framework/harbor/pull/3646
-[gh-3649]: https://github.com/harbor-framework/harbor/pull/3649
-[gh-3651]: https://github.com/harbor-framework/harbor/pull/3651
-[gh-3745]: https://github.com/harbor-framework/harbor/issues/3745
-[gh-3746]: https://github.com/harbor-framework/harbor/pull/3746
-[gh-3777]: https://github.com/harbor-framework/harbor/pull/3777
-[gh-3789]: https://github.com/harbor-framework/harbor/issues/3789
-[gh-3864]: https://github.com/harbor-framework/harbor/pull/3864

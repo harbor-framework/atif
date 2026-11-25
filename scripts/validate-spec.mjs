@@ -177,12 +177,42 @@ function validateSpecFrontmatter() {
 // 2. Relative Markdown Link Check in spec/v2.0/**/*.md and spec/CHANGELOG.md
 // ---------------------------------------------------------------------------
 
+function slugifyHeading(text) {
+  return text
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\*\*|__|\*|~/g, '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s_-]/gu, '')
+    .replace(/\s+/g, '-');
+}
+
+function collectHeadingSlugs(filePath, cache) {
+  if (cache.has(filePath)) return cache.get(filePath);
+  const slugs = new Set();
+  const counts = new Map();
+  const raw = fs.readFileSync(filePath, 'utf8').replace(/```[\s\S]*?```/g, '');
+  for (const line of raw.split(/\r?\n/)) {
+    const m = line.match(/^#{1,6}\s+(.+?)\s*#*\s*$/);
+    if (!m) continue;
+    const base = slugifyHeading(m[1]);
+    if (!base) continue;
+    const seen = counts.get(base) ?? 0;
+    counts.set(base, seen + 1);
+    slugs.add(seen === 0 ? base : `${base}-${seen}`);
+  }
+  cache.set(filePath, slugs);
+  return slugs;
+}
+
 function validateV2RelativeLinks() {
   const targets = [
     path.join(REPO_ROOT, 'spec', 'CHANGELOG.md'),
     ...walkFiles(path.join(REPO_ROOT, 'spec', 'v2.0'), (f) => f.endsWith('.md')),
   ];
   const linkRe = /(?<!!)\[[^\]]+\]\(([^)]+)\)/g;
+  const headingCache = new Map();
 
   for (const file of targets) {
     if (!fs.existsSync(file)) continue;
@@ -195,8 +225,7 @@ function validateV2RelativeLinks() {
       if (
         href.startsWith('http://') ||
         href.startsWith('https://') ||
-        href.startsWith('mailto:') ||
-        href.startsWith('#')
+        href.startsWith('mailto:')
       ) {
         continue;
       }
@@ -204,11 +233,19 @@ function validateV2RelativeLinks() {
         errs.push(`Forbidden local file:// link: ${href}`);
         continue;
       }
-      const targetPath = href.split('#')[0];
-      if (!targetPath) continue;
-      const resolved = path.resolve(path.dirname(file), targetPath);
+      const [targetPath, fragment] = href.split('#');
+      const resolved = targetPath ? path.resolve(path.dirname(file), targetPath) : file;
       if (!fs.existsSync(resolved)) {
         errs.push(`Broken relative link "${href}" (resolved: ${path.relative(REPO_ROOT, resolved)})`);
+        continue;
+      }
+      if (fragment && resolved.endsWith('.md')) {
+        const slugs = collectHeadingSlugs(resolved, headingCache);
+        if (!slugs.has(fragment)) {
+          errs.push(
+            `Broken anchor "#${fragment}" in link "${href}" (target: ${path.relative(REPO_ROOT, resolved)})`
+          );
+        }
       }
     }
     if (errs.length > 0) {

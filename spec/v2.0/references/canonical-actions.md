@@ -1,9 +1,9 @@
 ---
 title: "ATIF v2.0 Canonical Actions Catalog"
-description: "Strongly typed semantic action overlay catalog (Action.canonical) normalizing tool calls across agent harnesses."
+description: "Normative semantic action overlay catalog (Action.canonical) normalizing tool calls across agent harnesses."
 atif_version: "2.0"
 schema_version: "ATIF-v2.0"
-status: "final"
+status: "draft"
 release_date: "2026-11-25"
 doc_type: "reference"
 order: 10
@@ -12,60 +12,28 @@ source_ref: "harbor-framework/harbor#4134"
 
 # ATIF v2.0 Canonical Actions Catalog
 
-- **Status**: Final
-- **Core Specification**: [ATIF v2.0 Specification](../SPEC.md)
-- **Companion References**:
-  - [Translating Native Harness Formats to ATIF v2.0](./harness-examples.md)
-  - [ATIF v1.x Migration, Token Normalization, & Official Extensions](./migration-and-extensions.md)
-  - [Wire (Protobuf) & Warehouse (SQL) Projections](./projections.md)
-- **Machine-Readable Schema**: [`canonical-actions.schema.json`](../schema/canonical-actions.schema.json)
+*Normative companion to [ATIF v2.0 Specification](../SPEC.md) · Status: Working Draft · Machine-readable schema: [`canonical-actions.schema.json`](../schema/canonical-actions.schema.json).*
 
 ---
 
-## Overview & Design Principles
+## Overview
 
-Every agent harness defines its own proprietary tool names and argument schemas for identical operations:
-- **Shell execution**: `Bash` (Claude Code), `exec_command` / `shell` / `local_shell_call` (Codex CLI), `bash` (OpenCode, Pi), `run_command` (Antigravity), `run_terminal_cmd` (Cursor), `bash_command` (Terminus 2), `execute_bash` (OpenHands).
-- **File editing**: `Edit` / `MultiEdit` / `Write` (Claude Code), `apply_patch` (Codex CLI), `edit` / `write` / `patch` (OpenCode), `edit_file` / `write_file` (Antigravity), `str_replace_editor` (SWE-Agent, OpenHands).
-- **Subagent delegation**: `Task` / `Agent` (Claude Code), `spawn_agent` (Codex CLI), `task` (OpenCode, DeepAgents), `invoke_subagent` (Antigravity), `delegate_to_agent` (Goose).
+`Action.canonical` is an optional, strongly typed semantic overlay attached alongside raw `Action.name`, `Action.arguments`, and `Action.output`:
 
-Without a semantic normalization layer, cross-harness warehouse queries require brittle per-harness JSON path extraction and regexes over raw `Action.arguments`.
+1. **Non-destructive overlay**: Raw harness calls and outputs remain untouched on `Action`; `Action.canonical` adds normalized fields for cross-harness analysis.
+2. **Single active variant + orthogonal `mcp`**: At most one semantic member below MUST be populated (`oneof action` in [`atif.proto`](../schema/atif.proto)). `canonical.mcp` is orthogonal so MCP-backed tools can simultaneously populate a semantic variant (`file_read`, `search`, etc.).
+3. **Derived `type` discriminator**: `CanonicalAction.type` is optional in `"events"` documents and MUST be populated in `"trajectories"` documents and SQL projections (set to the active variant key, or `"mcp_tool"` when only `mcp` is populated).
+4. **Partial event updates**: In `"events"` output updates (`R2`), `Action.canonical` MAY supply partial fields (e.g., `{ shell_command: { exit_code: 0 } }`), which consolidation merges per [Field-Level Merge Rules](../SPEC.md#field-level-merge-and-folding-rules).
 
-ATIF v2.0 solves this via **`Action.canonical: CanonicalAction`**:
-1. **Non-Destructive Dual Representation**: `Action.name`, `Action.arguments`, and `Action.output` always preserve the exact raw tool call and output emitted by the harness. `Action.canonical` is an optional, strongly typed overlay populated by the harness adapter or converter.
-2. **Single-Key `oneof` Union with Derived `type` Discriminator**: `CanonicalAction` uses a single active member key (`shell_command`, `file_read`, `file_write`, `subagent`, etc.) that maps 1:1 to a Protobuf `oneof action` in [`atif.proto`](../schema/atif.proto) and a typed `STRUCT` in SQL (`actions.canonical.shell_command.exit_code`). An explicit `type` discriminator field (e.g. `"shell_command"`, `"file_write"`) is optional in `"events"` documents and populated in `"trajectories"` documents and SQL (`actions.canonical.type`) so analytical queries can filter and group by canonical action type directly.
+Common primitive and metadata types (`ArdUrn`, `Extensions`, `FinalMetrics`, `Modality`, `ModelMetadata`, `Sha256Urn`, `Timestamp`) are defined in [ATIF v2.0 Specification](../SPEC.md#common-primitive-types). Resource identifier fields (`identifier`, `*_identifier`) accept optional ARD URNs per [Resource Identifiers](../SPEC.md#resource-identifiers).
 
 ---
 
-## Cross-Harness Tool Mapping Summary
+## Envelope and Shared Types
 
-| Semantic Family | `CanonicalAction` Member | Representative Native Harness Tools Mapped | Key Typed Fields |
-| :--- | :--- | :--- | :--- |
-| **Command & Script Execution** | `shell_command`<br>`shell_send_input`<br>`script_exec` | **Claude Code**: `Bash`<br>**Codex**: `exec_command`, `shell`, `local_shell_call`, `write_stdin`<br>**OpenCode / Pi**: `bash`<br>**Antigravity**: `run_command`, `manage_task` (`send_input`)<br>**Cursor**: `run_terminal_cmd`<br>**Terminus 2**: `bash_command`<br>**OpenHands**: `execute_bash`, `execute_ipython_cell` | `task_id`, `cwd`, `command`, `exit_code` (`shell_command`); `task_id`, `input` (`shell_send_input`); `pid`, `language`, `path`, `source`, `arguments[]`, `exit_code` (`script_exec`) |
-| **Filesystem Operations** | `file_read`<br>`file_write`<br>`file_search`<br>`file_list`<br>`file_move`<br>`file_delete` | **Claude Code**: `Read`, `Write`, `Edit`, `MultiEdit`, `Grep`, `Glob`, `LS`<br>**Codex**: `apply_patch` (`Add`/`Update`/`Delete File`)<br>**OpenCode / Pi**: `read`, `write`, `edit`, `patch`, `grep`, `list`, `glob`<br>**Antigravity**: `read_file`, `write_file`, `edit_file`, `grep_search`, `find_by_name`<br>**Cursor**: `readToolCall`, `editToolCall`, `delete_file`<br>**SWE-Agent / OpenHands**: `str_replace_editor` | `scope` (`workspace`\|`computer`\|`memory`\|`session`\|`scratch`\|`artifact`), `path`, `line_start`, `line_end`, `digest` (`file_read`); `operation` (`create`\|`edit`\|`append`), `diff`, `before_digest`, `after_digest` (`file_write`); `query`, `directory`, `file_extensions[]` (`file_search`); `directory`, `glob_pattern`, `recursive` (`file_list`); `source`, `destination` (`file_move`); `path`, `recursive`, `before_digest` (`file_delete`) |
-| **Agent Coordination & Lifecycle** | `subagent`<br>`message_send`<br>`message_read`<br>`elicitation`<br>`timer`<br>`synthetic_context` | **Claude Code**: `Task`, `Agent`, `SendMessage`, `AskUserQuestion`<br>**Codex**: `spawn_agent`, `send_input`, `wait`, `resume_agent`, `close_agent`, `request_user_input`<br>**OpenCode**: `task`, `question`<br>**Antigravity**: `invoke_subagent`, `send_message`, `post_message`, `read_board`, `swarm_wait`, `ask_question`, `schedule`<br>**Vercel Board**: `post`, `reply`, `read`, `wait`<br>**DeepAgents**: `task` | `trajectory_id`, `uri`, `agent_name`, `agent_identifier`, `prompt`, `usage` (`subagent`); `sender`, `recipients[]`, `broadcast`, `task_id`, `channel_id`, `thread_id`, `message_id`, `message` (`message_send`); `channel_id`, `thread_id`, `message_ids[]`, `senders[]`, `wait` (`message_read`); `question`, `choices[]`, `requested_schema` (`elicitation`); `duration_sec`, `cron_expression`, `expire_time`, `prompt` (`timer`); `source` (`synthetic_context`) |
-| **Long-Running Task Management** | `task_status`<br>`task_list`<br>`task_stop` | **Claude Code**: `TaskOutput`, `TaskStop`, `KillShell`<br>**Antigravity**: `manage_task` (`status`\|`list`\|`kill`)<br>**Codex**: `wait` | `task_id`, `wait`, `wait_timeout_sec` (`task_status`); `task_type`, `include_completed` (`task_list`); `task_id`, `signal`, `reason` (`task_stop`) |
-| **Information Retrieval & Web** | `search`<br>`web_fetch` | **Claude Code**: `WebSearch`, `WebFetch`<br>**Codex**: `web_search_call`<br>**OpenCode**: `websearch`, `webfetch`<br>**Antigravity**: `search_web`, `code_search`, `moma_search` | `query`, `source` (`search`); `method`, `url`, `headers`, `request_body`, `response_status` (`web_fetch`) |
-| **Skills, MCP Provenance, & Discovery** | `skill_activate`<br>`skill_reference`<br>`skill_script`<br>`resource_discovery`<br>*(plus top-level `canonical.mcp`)* | **Claude Code / OpenCode / Pi**: `Skill`, `SKILL.md` reads, `mcp__<server>__<tool>`, `ToolSearch`<br>**Antigravity**: `skill_search`, `search_marketplace`, `MCP_TOOL` | `skill_name`, `skill_identifier`, `prompt` / `path` / `script_name`; `server_name`, `server_identifier`, `tool_name` (`canonical.mcp`); `query`, `types[]` (`resource_discovery`) |
-| **Utility, Media, & Extensions** | `multi`<br>`generate_media`<br>`extension` | Batched or code-mode multi-action dispatches (`multi_tool_use.parallel`, code-mode action batches), image/audio generation tools, and harness-specific namespaced extension actions | `actions: CanonicalAction[]` (`multi`); `modality`, `prompt`, `model`, `candidate_count` (`generate_media`); `namespace`, `data` (`extension`) |
-
----
-
-## Normative Interface Definitions
-
-The `CanonicalAction` schema below is imported by `Action.canonical` in [ATIF v2.0 Specification](../SPEC.md) and corresponds 1:1 with `message CanonicalAction` in [Wire & Warehouse Projections](./projections.md). In `"events"` output update events (`R2`), `Action.canonical` MAY supply partial member fields (e.g. `{ shell_command: { exit_code: 0 } }`), which Stream Consolidation merges field-by-field into the matching variant on the action's `canonical` object (replacing the prior variant if a different variant is sent). Resource identifier fields (`identifier` and `*_identifier`) accept optional `ArdUrn` values (`"urn:air:<publisher>:<namespace>:<name>"`) aligned with the [AI Catalog](https://ai-catalog.io/spec/) / Agentic Resource Discovery (ARD) specification (see [ATIF v2.0 Specification: Resource Identifiers (`ArdUrn`)](../SPEC.md#resource-identifiers-ardurn-auxiliary-catalog--common-scalar-types)).
+### `CanonicalAction`
 
 ```ts
-import type {
-  ArdUrn,
-  Extensions,
-  FinalMetrics,
-  Modality,
-  ModelMetadata,
-  Sha256Urn,
-  Timestamp,
-} from "./atif-v2.0";
-
 export type CanonicalActionType =
   | "multi"
   | "subagent"
@@ -96,35 +64,11 @@ export type CanonicalActionType =
   | "extension"
   | "resource_discovery";
 
-/**
- * Orthogonal MCP server/tool provenance attached to `CanonicalAction.mcp`.
- * May be paired with any semantic action variant (e.g. `file_read`, `search`) or used standalone (`type: "mcp_tool"`).
- */
-export interface CanonicalMcpProvenance {
-  /** Configured MCP server name (e.g. "github", "filesystem", "postgres"). */
-  server_name: string;
-  /** Optional ARD URN ("urn:air:...") for the MCP server. */
-  server_identifier?: ArdUrn | string;
-  /** Unprefixed MCP tool name invoked on the server (e.g. "get_issue", "read_file"). */
-  tool_name: string;
-}
-
-/**
- * Strongly typed semantic normalization of an Action.
- * At most one semantic action member below is populated (`oneof action` in Proto3); `mcp` is orthogonal
- * so MCP-provided file/search/shell tools retain both MCP provenance and semantic normalization.
- * `type` is optional in `"events"` documents and populated in `"trajectories"` documents and SQL projections
- * (set to the active member key, or `"mcp_tool"` when only `mcp` is populated).
- */
 export interface CanonicalAction {
-  /** Derived discriminator matching the populated semantic member key (or `"mcp_tool"` when only `mcp` is set). */
   type?: CanonicalActionType;
-  /** Explanation or reason provided by the agent for invoking this action. */
   reason?: string;
-  /** MCP server and tool provenance when the action was invoked via Model Context Protocol. */
   mcp?: CanonicalMcpProvenance;
 
-  // At most one semantic action member below is populated:
   multi?: CanonicalMultiAction;
   subagent?: CanonicalSubagent;
   message_send?: CanonicalMessageSend;
@@ -153,19 +97,37 @@ export interface CanonicalAction {
   extension?: CanonicalExtension;
   resource_discovery?: CanonicalResourceDiscovery;
 
-  /** Namespaced canonical action extensions. */
   extensions?: Extensions;
 }
+```
 
-/**
- * Logical storage scope of a filesystem operation inside the agent's environment:
- * - "workspace": Project repository or working directory files.
- * - "computer": Host/container OS files outside the project workspace.
- * - "memory": Persistent cross-session agent memory files (e.g. CLAUDE.md, MEMORY.md).
- * - "session": Ephemeral session state or plan files.
- * - "scratch": Throwaway scratchpad or temporary directory files.
- * - "artifact": Structured deliverable artifacts presented to the user.
- */
+- `reason` records an explanation provided by the agent for invoking this action.
+- `mcp` records orthogonal MCP server/tool provenance (`CanonicalMcpProvenance`).
+- At most one semantic variant (`multi` through `resource_discovery`) MUST be populated on a single `CanonicalAction`.
+
+### `CanonicalMcpProvenance`
+
+Orthogonal MCP provenance attached to `CanonicalAction.mcp`; may accompany any semantic variant or stand alone (`type: "mcp_tool"`).
+
+```ts
+export interface CanonicalMcpProvenance {
+  server_name: string;
+  server_identifier?: ArdUrn | string;
+  tool_name: string;
+}
+```
+
+- `server_name`: Configured MCP server name (e.g., `"github"`, `"filesystem"`, `"postgres"`).
+- `server_identifier`: Optional ARD URN (`"urn:air:..."`) for the MCP server.
+- `tool_name`: Unprefixed MCP tool name invoked on the server (e.g., `"get_issue"`, `"read_file"`).
+
+*Informative mappings:* `mcp__<server>__<tool>` (Claude Code, OpenCode, Pi), `MCP_TOOL` (Antigravity).
+
+### `FileScope`
+
+Closed vocabulary classifying the logical storage scope of filesystem actions:
+
+```ts
 export type FileScope =
   | "workspace"
   | "computer"
@@ -173,327 +135,519 @@ export type FileScope =
   | "session"
   | "scratch"
   | "artifact";
+```
 
-// ---- 1. Utility Actions (Proto tags 10-19) ----
+| Value | Meaning |
+| :--- | :--- |
+| `"workspace"` | Project repository or working directory files. |
+| `"computer"` | Host/container OS files outside the project workspace. |
+| `"memory"` | Persistent cross-session agent memory files (e.g., `CLAUDE.md`, `MEMORY.md`). |
+| `"session"` | Ephemeral session state or plan files. |
+| `"scratch"` | Throwaway scratchpad or temporary directory files. |
+| `"artifact"` | Structured deliverable artifacts presented to the user. |
 
-export interface CanonicalMultiAction {
-  /** Ordered or concurrent batch of canonical actions dispatched within a single wrapper or code-mode action. */
-  actions: CanonicalAction[];
-}
+### `MessageParticipant`
 
-// ---- 2. Agent Coordination & Lifecycle (Proto tags 20-29) ----
+Participant identity in multi-agent messaging (`message_send` and `message_read`), separating local runtime handle (`name`), execution path (`trajectory_id`), and catalog identity (`identifier`):
 
-export interface CanonicalSubagent {
-  /** Target subagent `trajectory_id` in the same `"trajectories"` document or warehouse. */
-  trajectory_id?: string;
-  /** RFC 3986 URI or relative path to an external subagent trajectory file (maps v1 `SubagentTrajectoryRef.trajectory_path`). */
-  uri?: string;
-  /** Invoked subagent role or template name. */
-  agent_name?: string;
-  /** Optional ARD URN ("urn:air:...") for the subagent definition. */
-  agent_identifier?: ArdUrn | string;
-  /** Task prompt delegated to the subagent. */
-  prompt?: string;
-  /** Informational aggregated token/cost usage for the subagent run (not double-counted into parent/session `final_metrics`). */
-  usage?: FinalMetrics;
-}
-
-/**
- * Identity of a participant in multi-agent messaging (sender or recipient).
- * Separates the local runtime handle (`name`), resolved execution path (`trajectory_id`),
- * and optional catalog/external agent class (`identifier`).
- */
+```ts
 export interface MessageParticipant {
-  /** Participant handle, role, or board profile name (e.g. `"parser"`, `"frontend-dev"`, `"fixer"`). */
   name?: string;
-  /** Resolved `trajectory_id` when the participant is a recorded trajectory. */
   trajectory_id?: string;
-  /** Optional ARD URN (`"urn:air:..."`) for the agent catalog definition or external agent. */
   identifier?: ArdUrn | string;
-}
-
-export interface CanonicalMessageSend {
-  /** Optional sender identity when distinct from `Trajectory.agent` (e.g. swarm handle or `--as` profile); defaults to the enclosing trajectory. */
-  sender?: MessageParticipant;
-  /** Addressed recipient(s); omitted on unaddressed channel posts or pure broadcasts. */
-  recipients?: MessageParticipant[];
-  /** True when broadcast to all peers in the team, swarm, or channel (e.g. `@all`, Claude Code `broadcast`). */
-  broadcast?: boolean;
-  /** Target background task ID when messaging an async worker. */
-  task_id?: string;
-  /** Shared board, channel, or room identifier (e.g. `"main"`, `"parser"`, `"dev"`, `"C0123ABCD"`). */
-  channel_id?: string;
-  /** Thread or parent message ID when replying within a thread. */
-  thread_id?: string;
-  /** Assigned message ID or board sequence number (e.g. `"12"`, `"msg_9a1f"`). */
-  message_id?: string;
-  /** Optional message body (subject to `Action.truncated_fields["canonical.message_send.message"]` when oversized). */
-  message?: string;
-}
-
-export interface CanonicalMessageRead {
-  /** Shared board, channel, or inbox read or waited on (e.g. `"main"`, `"parser"`, `"spaces/AAAA..."`). */
-  channel_id?: string;
-  /** Thread ID read or waited on. */
-  thread_id?: string;
-  /** Message ID(s) or board sequence number(s) read or received (joins to `CanonicalMessageSend.message_id`). */
-  message_ids?: string[];
-  /** Sender participant(s) of the message(s) read, when known. */
-  senders?: MessageParticipant[];
-  /** True when the action waits or parks for incoming messages (e.g. `swarm_wait`, `vercel board wait`). */
-  wait?: boolean;
-}
-
-export interface CanonicalElicitation {
-  /** Clarifying question presented to the user. */
-  question: string;
-  /** Predefined selectable options offered to the user. */
-  choices?: string[];
-  /** Optional JSON Schema when requesting structured form input from the user. */
-  requested_schema?: Record<string, unknown>;
-}
-
-export interface CanonicalTimer {
-  /** One-shot timer duration in seconds. */
-  duration_sec?: number;
-  /** Recurring schedule in 5-field cron syntax (mutually exclusive with `duration_sec`). */
-  cron_expression?: string;
-  /** Absolute wall-clock expiration timestamp. */
-  expire_time?: Timestamp;
-  /** Wakeup prompt delivered to the agent when the timer or cron fires. */
-  prompt?: string;
-}
-
-export interface CanonicalSyntheticContext {
-  /** Origin of the harness-injected synthetic context block. */
-  source: "system" | "environment" | "event";
-}
-
-// ---- 3. Long-Running Task & Process Management (Proto tags 30-39) ----
-
-export interface CanonicalTaskStatus {
-  /** Identifier of the background task being polled or waited on. */
-  task_id: string;
-  /** True when the action waits for task progress or completion rather than returning an instant snapshot. */
-  wait?: boolean;
-  /** Maximum time in seconds waited for task output or completion. */
-  wait_timeout_sec?: number;
-}
-
-export interface CanonicalTaskList {
-  /** Optional filter for background task category. */
-  task_type?: string;
-  /** Whether completed/terminated tasks were included in the listing. */
-  include_completed?: boolean;
-}
-
-export interface CanonicalTaskStop {
-  /** Identifier of the background task being terminated. */
-  task_id: string;
-  /** OS signal sent to the process (e.g. "SIGTERM", "SIGKILL"). */
-  signal?: string;
-  /** Reason the task was stopped. */
-  reason?: string;
-}
-
-// ---- 4. Command & Script Execution (Proto tags 40-49) ----
-
-export interface CanonicalShellCommand {
-  /** Background task ID if the command was backgrounded or runs in a persistent PTY. */
-  task_id?: string;
-  /** Working directory in which the command executed. */
-  cwd?: string;
-  /** Exact shell command line executed. */
-  command: string;
-  /** Process exit status code (0 for success). */
-  exit_code?: number;
-}
-
-export interface CanonicalShellSendInput {
-  /** Target interactive PTY or background shell `task_id`. */
-  task_id: string;
-  /** Standard input bytes/characters written to the process. */
-  input: string;
-}
-
-export interface CanonicalScriptExec {
-  /** Process or kernel session identifier (e.g. Jupyter/IPython kernel ID). */
-  pid?: string;
-  /** Programming language of the executed script (e.g. "python", "javascript"). */
-  language?: string;
-  /** Script file path if executed from disk. */
-  path?: string;
-  /** Inline script source code (e.g. IPython cell or workflow script). */
-  source?: string;
-  /** Command-line arguments passed to the script. */
-  arguments?: string[];
-  /** Script exit code (0 for success). */
-  exit_code?: number;
-}
-
-// ---- 5. Filesystem Operations (Proto tags 50-59) ----
-
-export interface CanonicalFileRead {
-  /** Logical storage scope of the target file. */
-  scope?: FileScope;
-  /** File path read by the agent. */
-  path: string;
-  /** 1-based starting line number read (if a line range was requested). */
-  line_start?: number;
-  /** 1-based ending line number read (inclusive). */
-  line_end?: number;
-  /** Optional SHA-256 digest of the file version read (`"urn:sha256:<hex>"`). */
-  digest?: Sha256Urn;
-}
-
-export interface CanonicalFileWrite {
-  /** Logical storage scope of the target file. */
-  scope?: FileScope;
-  /** File path created or modified by the agent. */
-  path: string;
-  /** Write mode when known (`"create"` for a new file, `"edit"` for modifying/replacing an existing file, `"append"` for appending). */
-  operation?: "create" | "edit" | "append";
-  /** Unified diff (`--- a/...`, `+++ b/...`, `@@ ... @@`) representing the file change. */
-  diff?: string;
-  /** Optional pre-write file SHA-256 digest (`"urn:sha256:<hex>"`; omitted on `"create"`). */
-  before_digest?: Sha256Urn;
-  /** Optional post-write file SHA-256 digest (`"urn:sha256:<hex>"`). */
-  after_digest?: Sha256Urn;
-}
-
-export interface CanonicalFileSearch {
-  /** Logical storage scope searched. */
-  scope?: FileScope;
-  /** Regex or substring search pattern. */
-  query: string;
-  /** Root directory path scoped for the search. */
-  directory?: string;
-  /** File extensions or glob filters applied to the search. */
-  file_extensions?: string[];
-}
-
-export interface CanonicalFileList {
-  /** Logical storage scope listed. */
-  scope?: FileScope;
-  /** Directory path listed. */
-  directory: string;
-  /** Optional glob pattern filter (e.g. "**/*.py"). */
-  glob_pattern?: string;
-  /** Whether subdirectories were traversed recursively. */
-  recursive?: boolean;
-}
-
-export interface CanonicalFileMove {
-  /** Logical storage scope of the move/rename operation. */
-  scope?: FileScope;
-  /** Source file or directory path. */
-  source: string;
-  /** Destination file or directory path. */
-  destination: string;
-}
-
-export interface CanonicalFileDelete {
-  /** Logical storage scope of the deleted file or directory. */
-  scope?: FileScope;
-  /** File or directory path deleted by the agent. */
-  path: string;
-  /** Whether a directory was deleted recursively. */
-  recursive?: boolean;
-  /** Optional pre-delete file SHA-256 digest (`"urn:sha256:<hex>"`). */
-  before_digest?: Sha256Urn;
-}
-
-// ---- 6. Information Retrieval & Networking (Proto tags 60-69) ----
-
-export interface CanonicalSearch {
-  /** Search query string submitted to the search engine or index. */
-  query: string;
-  /** Search corpus or provider (e.g. "web", "codebase", "docs"). */
-  source?: string;
-}
-
-export interface CanonicalWebFetch {
-  /** HTTP request method (defaults to "GET"). */
-  method?: string;
-  /** Target URL fetched. */
-  url: string;
-  /** HTTP request headers. */
-  headers?: Record<string, unknown>;
-  /** HTTP request body payload. */
-  request_body?: string;
-  /** HTTP response status code (e.g. 200, 404). */
-  response_status?: number;
-}
-
-// ---- 7. Skills (Proto tags 70-79) ----
-
-export interface CanonicalSkillActivate {
-  /** Name of the activated skill. */
-  skill_name: string;
-  /** Optional ARD URN ("urn:air:...") for the skill. */
-  skill_identifier?: ArdUrn | string;
-  /** Optional arguments or prompt passed to the skill invocation. */
-  prompt?: string;
-}
-
-export interface CanonicalSkillReference {
-  /** Name of the owning skill. */
-  skill_name: string;
-  /** Optional ARD URN ("urn:air:...") for the skill. */
-  skill_identifier?: ArdUrn | string;
-  /** Relative or absolute path of the skill file read (e.g. "SKILL.md", "references/api.md"). */
-  path: string;
-}
-
-export interface CanonicalSkillScript {
-  /** Name of the owning skill. */
-  skill_name: string;
-  /** Optional ARD URN ("urn:air:...") for the skill. */
-  skill_identifier?: ArdUrn | string;
-  /** Helper script filename executed from the skill bundle. */
-  script_name: string;
-  /** Arguments passed to the skill script. */
-  arguments?: string[];
-  /** Working directory in which the skill script ran. */
-  cwd?: string;
-}
-
-// ---- 8. Media Generation (Proto tags 80-89) ----
-
-export interface CanonicalGenerateMedia {
-  /** Generated media modality ("image", "audio", "video"). */
-  modality: Modality;
-  /** Generation prompt passed to the media model. */
-  prompt: string;
-  /** Media generation model metadata. */
-  model?: ModelMetadata;
-  /** Number of candidate assets requested. */
-  candidate_count?: number;
-}
-
-// ---- 9. Extensibility & Catalog Discovery (Proto tags 90-99) ----
-
-export interface CanonicalExtension {
-  /** Reverse-DNS domain or RFC 3986 URI identifying the extension action schema (e.g. "com.example.deploy_service"). */
-  namespace: string;
-  /** Optional schema-governed JSON object payload for the extension action. */
-  data?: Record<string, unknown>;
-}
-
-export interface CanonicalResourceDiscovery {
-  /** Search query used to discover tools, skills, plugins, or MCP resources. */
-  query: string;
-  /** Resource categories queried (e.g. ["tool", "skill", "plugin"]). */
-  types?: string[];
 }
 ```
 
 ---
 
-## Concrete Normalization Examples
+## Utility
 
-### File Edit Normalized to `file_write` with Unified Diff
-Whether an agent calls Claude Code's `Edit` (`old_string`, `new_string`), Codex's `apply_patch` (multi-file patches compose `file_write`, `file_move`, and `file_delete` via `canonical.multi`), or SWE-Agent's `str_replace_editor`, the converter populates `canonical.file_write` with the target `path`, optional `operation`, unified `diff`, and optional `before_digest` / `after_digest`:
+### `multi`
+
+Ordered or concurrent batch of canonical actions dispatched within a single wrapper or code-mode action.
+
+```ts
+export interface CanonicalMultiAction {
+  actions: CanonicalAction[];
+}
+```
+
+*Informative mappings:* `multi_tool_use.parallel`, multi-file `apply_patch` batches, code-mode action batches.
+
+---
+
+## Agent Coordination and Lifecycle
+
+### `subagent`
+
+Delegation to a child agent trajectory.
+
+```ts
+export interface CanonicalSubagent {
+  trajectory_id?: string;
+  uri?: string;
+  agent_name?: string;
+  agent_identifier?: ArdUrn | string;
+  prompt?: string;
+  usage?: FinalMetrics;
+}
+```
+
+- `trajectory_id`: Target subagent `trajectory_id` in the same document or warehouse.
+- `uri`: RFC 3986 URI or relative path to an external subagent trajectory file.
+- `agent_name`, `agent_identifier`: Invoked subagent role/template name and optional ARD URN.
+- `prompt`: Task prompt delegated to the subagent.
+- `usage`: Informational aggregated token/cost usage for the subagent run (not double-counted into parent or session `final_metrics`).
+
+*Informative mappings:* `Task`, `Agent` (Claude Code); `spawn_agent` (Codex); `task` (OpenCode, DeepAgents); `invoke_subagent` (Antigravity); `delegate_to_agent` (Goose).
+
+### `message_send`
+
+Direct teammate message, async worker input, or shared-board post.
+
+```ts
+export interface CanonicalMessageSend {
+  sender?: MessageParticipant;
+  recipients?: MessageParticipant[];
+  broadcast?: boolean;
+  task_id?: string;
+  channel_id?: string;
+  thread_id?: string;
+  message_id?: string;
+  message?: string;
+}
+```
+
+- `sender`: Optional sender identity when distinct from `Trajectory.agent` (defaults to the enclosing trajectory).
+- `recipients`: Addressed recipients (omitted on unaddressed channel posts or broadcasts).
+- `broadcast`: `true` when broadcast to all peers in a team, swarm, or channel.
+- `task_id`: Target background task ID when messaging an async worker.
+- `channel_id`, `thread_id`, `message_id`: Board/channel/room ID, thread ID, and assigned message ID or board sequence number.
+- `message`: Optional message body (subject to `Action.truncated_fields["canonical.message_send.message"]` when oversized).
+
+*Informative mappings:* `SendMessage` (Claude Code); `send_input` (Codex); `send_message`, `post_message` (Antigravity); `post`, `reply` (Vercel Board).
+
+### `message_read`
+
+Reading or waiting on incoming peer messages or a shared board.
+
+```ts
+export interface CanonicalMessageRead {
+  channel_id?: string;
+  thread_id?: string;
+  message_ids?: string[];
+  senders?: MessageParticipant[];
+  wait?: boolean;
+}
+```
+
+- `channel_id`, `thread_id`: Board, channel, inbox, or thread read or waited on.
+- `message_ids`: Message IDs or board sequence numbers received (joins to `CanonicalMessageSend.message_id`).
+- `senders`: Sender participants of the messages read, when known.
+- `wait`: `true` when the action parks or blocks waiting for incoming messages.
+
+*Informative mappings:* `read_board`, `swarm_wait` (Antigravity); `read`, `wait` (Vercel Board).
+
+### `elicitation`
+
+Clarifying question or structured input request presented to the user.
+
+```ts
+export interface CanonicalElicitation {
+  question: string;
+  choices?: string[];
+  requested_schema?: Record<string, unknown>;
+}
+```
+
+- `choices`: Optional selectable options offered to the user.
+- `requested_schema`: Optional JSON Schema when requesting structured form input.
+
+*Informative mappings:* `AskUserQuestion` (Claude Code); `request_user_input` (Codex); `question` (OpenCode); `ask_question` (Antigravity).
+
+### `timer`
+
+One-shot timer or recurring cron schedule delivering a future wakeup prompt.
+
+```ts
+export interface CanonicalTimer {
+  duration_sec?: number;
+  cron_expression?: string;
+  expire_time?: Timestamp;
+  prompt?: string;
+}
+```
+
+- `duration_sec`: One-shot timer duration in seconds (mutually exclusive with `cron_expression`).
+- `cron_expression`: Recurring 5-field cron schedule (mutually exclusive with `duration_sec`).
+- `expire_time`: Absolute wall-clock expiration timestamp.
+- `prompt`: Wakeup prompt delivered when the timer or cron fires.
+
+*Informative mappings:* `schedule` (Antigravity).
+
+### `synthetic_context`
+
+Harness-injected synthetic context block.
+
+```ts
+export interface CanonicalSyntheticContext {
+  source: "system" | "environment" | "event";
+}
+```
+
+`source` is a closed vocabulary identifying the origin of the injected context block.
+
+---
+
+## Task and Process Management
+
+### `task_status`
+
+Polling or waiting on a background task's progress or output.
+
+```ts
+export interface CanonicalTaskStatus {
+  task_id: string;
+  wait?: boolean;
+  wait_timeout_sec?: number;
+}
+```
+
+- `wait`: `true` when waiting for progress or completion rather than returning an instant snapshot.
+- `wait_timeout_sec`: Maximum seconds waited for output or completion.
+
+*Informative mappings:* `TaskOutput` (Claude Code); `manage_task` (`status`, Antigravity); `wait` (Codex).
+
+### `task_list`
+
+Listing active (and optionally completed) background tasks.
+
+```ts
+export interface CanonicalTaskList {
+  task_type?: string;
+  include_completed?: boolean;
+}
+```
+
+*Informative mappings:* `manage_task` (`list`, Antigravity).
+
+### `task_stop`
+
+Terminating a background task or shell process.
+
+```ts
+export interface CanonicalTaskStop {
+  task_id: string;
+  signal?: string;
+  reason?: string;
+}
+```
+
+- `signal`: OS signal sent to the process (e.g., `"SIGTERM"`, `"SIGKILL"`).
+
+*Informative mappings:* `TaskStop`, `KillShell` (Claude Code); `manage_task` (`kill`, Antigravity); `close_agent` (Codex).
+
+---
+
+## Command and Script Execution
+
+### `shell_command`
+
+Executing a shell command in an environment or persistent PTY.
+
+```ts
+export interface CanonicalShellCommand {
+  task_id?: string;
+  cwd?: string;
+  command: string;
+  exit_code?: number;
+}
+```
+
+- `task_id`: Background task ID if backgrounded or running in a persistent PTY.
+- `cwd`: Working directory in which the command executed.
+- `exit_code`: Process exit status code (`0` for success).
+
+*Informative mappings:* `Bash` (Claude Code); `exec_command`, `shell`, `local_shell_call` (Codex); `bash` (OpenCode, Pi); `run_command` (Antigravity); `run_terminal_cmd` (Cursor); `bash_command` (Terminus 2); `execute_bash` (OpenHands).
+
+### `shell_send_input`
+
+Writing standard input bytes or characters to an interactive PTY or background shell.
+
+```ts
+export interface CanonicalShellSendInput {
+  task_id: string;
+  input: string;
+}
+```
+
+*Informative mappings:* `write_stdin` (Codex); `manage_task` (`send_input`, Antigravity).
+
+### `script_exec`
+
+Executing a script file, notebook cell, or inline workflow program.
+
+```ts
+export interface CanonicalScriptExec {
+  pid?: string;
+  language?: string;
+  path?: string;
+  source?: string;
+  arguments?: string[];
+  exit_code?: number;
+}
+```
+
+- `pid`: Process or kernel session identifier (e.g., Jupyter/IPython kernel ID).
+- `language`: Programming language (e.g., `"python"`, `"javascript"`).
+- `path`, `source`: Disk path or inline source code executed.
+
+*Informative mappings:* `execute_ipython_cell` (OpenHands).
+
+---
+
+## Filesystem Operations
+
+### `file_read`
+
+Reading a file or line range from a storage scope.
+
+```ts
+export interface CanonicalFileRead {
+  scope?: FileScope;
+  path: string;
+  line_start?: number;
+  line_end?: number;
+  digest?: Sha256Urn;
+}
+```
+
+- `line_start`, `line_end`: 1-based inclusive line range when partial lines were requested.
+- `digest`: Optional SHA-256 digest (`"urn:sha256:<hex>"`) of the file version read.
+
+*Informative mappings:* `Read` (Claude Code); `read` (OpenCode, Pi); `read_file` (Antigravity); `readToolCall` (Cursor).
+
+### `file_write`
+
+Creating, editing, or appending to a file.
+
+```ts
+export interface CanonicalFileWrite {
+  scope?: FileScope;
+  path: string;
+  operation?: "create" | "edit" | "append";
+  diff?: string;
+  before_digest?: Sha256Urn;
+  after_digest?: Sha256Urn;
+}
+```
+
+- `operation`: Closed vocabulary (`"create"` for a new file, `"edit"` for modifying/replacing an existing file, `"append"` for appending).
+- `diff`: Unified diff (`--- a/...`, `+++ b/...`, `@@ ... @@`) representing the change.
+- `before_digest`, `after_digest`: Optional pre-write (omitted on `"create"`) and post-write SHA-256 digests.
+
+*Informative mappings:* `Edit`, `MultiEdit`, `Write` (Claude Code); `apply_patch` (Codex); `edit`, `write`, `patch` (OpenCode, Pi); `edit_file`, `write_file` (Antigravity); `editToolCall` (Cursor); `str_replace_editor` (SWE-Agent, OpenHands).
+
+### `file_search`
+
+Searching file contents by regex or substring pattern.
+
+```ts
+export interface CanonicalFileSearch {
+  scope?: FileScope;
+  query: string;
+  directory?: string;
+  file_extensions?: string[];
+}
+```
+
+*Informative mappings:* `Grep` (Claude Code); `grep` (OpenCode, Pi); `grep_search` (Antigravity).
+
+### `file_list`
+
+Listing directory entries or matching file paths by glob.
+
+```ts
+export interface CanonicalFileList {
+  scope?: FileScope;
+  directory: string;
+  glob_pattern?: string;
+  recursive?: boolean;
+}
+```
+
+*Informative mappings:* `Glob`, `LS` (Claude Code); `list`, `glob` (OpenCode, Pi); `find_by_name` (Antigravity).
+
+### `file_move`
+
+Moving or renaming a file or directory.
+
+```ts
+export interface CanonicalFileMove {
+  scope?: FileScope;
+  source: string;
+  destination: string;
+}
+```
+
+*Informative mappings:* `apply_patch` move entries (Codex).
+
+### `file_delete`
+
+Deleting a file or directory.
+
+```ts
+export interface CanonicalFileDelete {
+  scope?: FileScope;
+  path: string;
+  recursive?: boolean;
+  before_digest?: Sha256Urn;
+}
+```
+
+- `before_digest`: Optional pre-delete file SHA-256 digest (`"urn:sha256:<hex>"`).
+
+*Informative mappings:* `delete_file` (Cursor); `apply_patch` delete entries (Codex).
+
+---
+
+## Information Retrieval and Web
+
+### `search`
+
+Querying a search engine, code index, or internal knowledge base.
+
+```ts
+export interface CanonicalSearch {
+  query: string;
+  source?: string;
+}
+```
+
+- `source`: Search corpus or provider (e.g., `"web"`, `"codebase"`, `"docs"`).
+
+*Informative mappings:* `WebSearch` (Claude Code); `web_search_call` (Codex); `websearch` (OpenCode); `search_web`, `code_search`, `moma_search` (Antigravity).
+
+### `web_fetch`
+
+Performing an HTTP request to fetch a URL.
+
+```ts
+export interface CanonicalWebFetch {
+  method?: string;
+  url: string;
+  headers?: Record<string, unknown>;
+  request_body?: string;
+  response_status?: number;
+}
+```
+
+- `method`: HTTP method (defaults to `"GET"`).
+- `response_status`: HTTP status code (e.g., `200`, `404`).
+
+*Informative mappings:* `WebFetch` (Claude Code); `webfetch` (OpenCode).
+
+---
+
+## Skills
+
+### `skill_activate`
+
+Activating or invoking an agent skill.
+
+```ts
+export interface CanonicalSkillActivate {
+  skill_name: string;
+  skill_identifier?: ArdUrn | string;
+  prompt?: string;
+}
+```
+
+*Informative mappings:* `Skill` (Claude Code, OpenCode, Pi).
+
+### `skill_reference`
+
+Reading a reference file inside a skill bundle (e.g., `SKILL.md`, `references/api.md`).
+
+```ts
+export interface CanonicalSkillReference {
+  skill_name: string;
+  skill_identifier?: ArdUrn | string;
+  path: string;
+}
+```
+
+### `skill_script`
+
+Executing a helper script bundled with a skill.
+
+```ts
+export interface CanonicalSkillScript {
+  skill_name: string;
+  skill_identifier?: ArdUrn | string;
+  script_name: string;
+  arguments?: string[];
+  cwd?: string;
+}
+```
+
+---
+
+## Media Generation
+
+### `generate_media`
+
+Generating image, audio, or video assets via a media model.
+
+```ts
+export interface CanonicalGenerateMedia {
+  modality: Modality;
+  prompt: string;
+  model?: ModelMetadata;
+  candidate_count?: number;
+}
+```
+
+---
+
+## Extensibility and Resource Discovery
+
+### `extension`
+
+Namespaced custom semantic action not covered by the core catalog.
+
+```ts
+export interface CanonicalExtension {
+  namespace: string;
+  data?: Record<string, unknown>;
+}
+```
+
+- `namespace`: Reverse-DNS domain or RFC 3986 URI (e.g., `"com.example.deploy_service"`).
+- `data`: Optional schema-governed JSON object payload.
+
+### `resource_discovery`
+
+Searching for available tools, skills, plugins, or MCP resources.
+
+```ts
+export interface CanonicalResourceDiscovery {
+  query: string;
+  types?: string[];
+}
+```
+
+- `types`: Resource categories queried (e.g., `["tool", "skill", "plugin"]`).
+
+*Informative mappings:* `ToolSearch` (Claude Code); `skill_search`, `search_marketplace` (Antigravity).
+
+---
+
+## Normalization Examples
+
+*This section is non-normative.*
+
+### File Edit Normalized to `file_write`
 
 ```json
 {
@@ -526,8 +680,9 @@ Whether an agent calls Claude Code's `Edit` (`old_string`, `new_string`), Codex'
 }
 ```
 
-### MCP Tool Call with Top-Level `canonical.mcp` Provenance
-When an agent invokes a Model Context Protocol tool (e.g., `mcp__github__get_issue` in Claude Code or a native MCP call in Antigravity/Codex), top-level `canonical.mcp` captures the `server_name` and `tool_name`. Domain-specific MCP tools set `type: "mcp_tool"`, while MCP tools that also match a semantic action (e.g. `mcp__filesystem__read_file`) populate **both** `canonical.mcp` and `canonical.file_read`:
+### MCP Tool Call with Orthogonal `canonical.mcp`
+
+Domain-specific MCP tools set `type: "mcp_tool"`. MCP tools matching a semantic action (e.g., `mcp__filesystem__read_file`) populate both `canonical.mcp` and the semantic member (`canonical.file_read`, with `type: "file_read"`):
 
 ```json
 {
@@ -560,8 +715,7 @@ When an agent invokes a Model Context Protocol tool (e.g., `mcp__github__get_iss
 }
 ```
 
-### Multi-Agent Messaging (`message_send` & `message_read`)
-Direct teammate messages (Claude Code `SendMessage`, Codex `send_input`, Antigravity `send_message`) and shared-board coordination (Antigravity Swarm `post_message` / `read_board` / `swarm_wait`, Vercel Board `post` / `read` / `wait`) share the same `MessageParticipant`, `channel_id`, `thread_id`, and `message_id` fields so visualizers and SQL queries can join sends to reads without regexing raw arguments:
+### Multi-Agent Messaging (`message_send` and `message_read`)
 
 ```json
 {
@@ -591,7 +745,7 @@ Direct teammate messages (Claude Code `SendMessage`, Codex `send_input`, Antigra
 }
 ```
 
-A corresponding board read or wait action on the receiving worker records `message_read` (setting `wait: true` on `swarm_wait` or `vercel board wait`):
+Corresponding read action on the receiving worker:
 
 ```json
 {

@@ -1,46 +1,39 @@
 ---
 title: "Translating Native Harness Formats to ATIF v2.0"
-description: "Stateless 1:1 streaming translation examples for Claude Code, OpenAI Codex CLI, Cursor CLI, and end-to-end consolidation fixtures."
+description: "Non-normative 1:1 streaming translation examples for Claude Code, OpenAI Codex CLI, Cursor CLI, and end-to-end consolidation fixtures."
 atif_version: "2.0"
 schema_version: "ATIF-v2.0"
-status: "final"
+status: "draft"
 release_date: "2026-11-25"
 doc_type: "reference"
-order: 20
+order: 40
 source_ref: "harbor-framework/harbor#4134"
 ---
 
 # Translating Native Harness Formats to ATIF v2.0
 
-- **Status**: Final
-- **Core Specification**: [ATIF v2.0 Specification](../SPEC.md)
-- **Companion References**:
-  - [Canonical Actions Catalog](./canonical-actions.md)
-  - [ATIF v1.x Migration, Token Normalization, & Official Extensions](./migration-and-extensions.md)
-  - [Wire (Protobuf) & Warehouse (SQL) Projections](./projections.md)
-- **Reference Fixtures**: [`session.atif-e.jsonl`](../examples/session.atif-e.jsonl) → [`session.atif.jsonl`](../examples/session.atif.jsonl)
+*Non-normative companion to [ATIF v2.0 Specification](../SPEC.md) · Status: Working Draft · Fixtures: [`session.atif-e.jsonl`](../examples/session.atif-e.jsonl) → [`session.atif.jsonl`](../examples/session.atif.jsonl).*
 
 ---
 
-## Overview: Stateless 1:1 Translation Across Streaming Topologies
+## Streaming Patterns Across Harnesses
 
-A central goal of **ATIF v2.0 `"events"` documents (`.atif-e.jsonl`)** is that an agent harness or lightweight adapter can emit one `EventRecord` (`type: "event"`) JSONL line per native harness event **without buffering multi-event turns in memory**. The **Stream Consolidation Algorithm** ([ATIF v2.0 Specification: Stream Consolidation Algorithm](../SPEC.md#three-phase-stream-consolidation-algorithm-events--trajectories)) then deterministically folds those events into a consolidated **`"trajectories"` document (`.atif.jsonl`)** of `meta`, `session`, `trajectory`, `step`, and `extension` NDJSON lines.
+This non-normative guide illustrates stateless 1:1 translation from native harness event logs into ATIF v2.0 `"events"` documents (`.atif-e.jsonl`), which the [Stream Consolidation Algorithm](../SPEC.md#stream-consolidation-algorithm) deterministically folds into `"trajectories"` documents (`.atif.jsonl`).
 
-Across production coding and computer-use agents, native trajectory logs fall into four primary streaming patterns:
-
-| Pattern | Harnesses | Key Native Characteristics | How `"events"` Captures It 1:1 & Consolidates into `"trajectories"` |
+| Pattern | Harnesses | Native Turn Boundary | ATIF Mapping Strategy |
 | :--- | :--- | :--- | :--- |
-| **1. Message-ID-Keyed Content Slices** | **Claude Code**, **Goose** | One LLM inference (`message.id = "msg_01"`) emits 3–4 separate `assistant` JSONL lines (`thinking`, `text`, `tool_use`), each with its own `uuid`/`parentUuid` and repeated cumulative `usage`. Tool results arrive on `type: "user"` lines (in Claude Code 2.1+, one per parallel `tool_result`, pointing `parentUuid` back to its own `tool_use` slice), and compactions set `logicalParentUuid`. | Each `assistant` slice maps to an `EventRecord` (`event.step`, `event_id = uuid`, `response_id = message.id`), omitting `branch` on linear events and emitting `branch: { after_event_id }` only on genuine branch/rewind jumps (bridging any native record not emitted as a trajectory `EventRecord`). Each `tool_result` maps to an `event.action` update (`action_id = tool_use_id`, never setting `branch`; if one `user` line packs $K > 1$ parallel `tool_result`s, chain `"<uuid>#1" .. "<uuid>"`). Consolidation Rule `R7` merges slices sharing `response_id` into one `Step` and snapshot-replaces `metrics`. |
-| **2. Unkeyed Sequential Items & Chunk Streams** | **OpenAI Codex CLI**, **ACP**, **Cursor IDE** | `reasoning`, `message`, `function_call`, `function_call_output`, and `token_count` stream as separate lines or token chunks with **no shared message ID**. Rewinds emit standalone `thread_rolled_back` events. | Each model item or chunk maps to `event.step` (`source: "agent"`), each tool call/output maps to `event.action` (`action_id = call_id`), and `thread_rolled_back` maps to a standalone `event.branch` (`{ after_event_id, reason: "rewind" }`, no payload). Consolidation Rules `R6`–`R10` group `reasoning + message + function_call + output + token_count` into a single `Step`, concatenating adjacent fold-eligible `"text"` parts and unsigned `"reasoning"` parts (when neither part carries `truncated_fields` or `extensions`) and closing the step when new model content arrives after `OBSERVED` (`R10`). |
-| **3. Out-of-Order Top-Level Events (`model_call_id`)** | **Cursor CLI (`stream-json`)** | `thinking`, `assistant`, and `tool_call` (`started`\|`completed`) stream as top-level events correlated by `model_call_id`. | Each event sets `event.response_id = model_call_id`. Consolidation Rule `R5` routes any out-of-order slice directly to its matching `Step` in `steps_by_response_id`. |
-| **4. Explicit Step Brackets & Action/Observation Streams** | **OpenCode** (`step-start`..`step-finish`), **Pi** (`parentId` tree), **OpenHands** | OpenCode wraps each LLM turn in `step-start` / `step-finish` parts; OpenHands emits paired `Action` and `Observation` events. | OpenCode maps the bracket ID to `response_id`; OpenHands maps agent actions to `event.step` + `event.action` and environment observations to `event.action` output updates (`R2`). |
+| **1. Message-ID-Keyed Content Slices** | Claude Code, Goose | Multiple `assistant` JSONL slices share `message.id` with repeated cumulative `usage`; `tool_result` arrives on `user` lines. | Emit each slice as `event.step` with `response_id = message.id` (merged by `R7` with snapshot-replaced `metrics`); emit each `tool_result` as `event.action` (`R2`, no `branch`; fan-out `K > 1` parallel results on one line as `"<uuid>#1".."<uuid>"`). |
+| **2. Unkeyed Sequential Items & Chunks** | OpenAI Codex CLI, ACP, Cursor IDE | `reasoning`, `message`, `function_call`, `function_call_output`, and `token_count` stream without a shared message ID; rewinds emit `thread_rolled_back`. | Map items/chunks to `event.step` (`agent`), tool calls/outputs to `event.action`, and rollbacks to standalone `event.branch`. Rules `R6`–`R10` fold adjacent parts and open a new step after `OBSERVED`. |
+| **3. Out-of-Order Top-Level Events** | Cursor CLI (`stream-json`) | `thinking`, `assistant`, and `tool_call` stream as top-level events sharing `model_call_id`. | Set `event.response_id = model_call_id`; Rule `R5` routes out-of-order slices to the matching `Step`. |
+| **4. Explicit Step Brackets / Action-Observation** | OpenCode (`step-start`..`step-finish`), Pi (`parentId`), OpenHands | Explicit turn brackets or paired `Action`/`Observation` events. | Map bracket ID to `response_id`; map agent actions to `event.step` + `event.action` and environment observations to `event.action` updates (`R2`). |
 
 ---
 
 ## Claude Code (`~/.claude/projects/.../<session>.jsonl`)
 
 ### Native Claude Code JSONL (4 lines for 1 LLM Turn)
-In Claude Code, a single Anthropic API response (`msg_01XYZ`) is written as three separate `type: "assistant"` JSONL lines (one per content block), followed by a `type: "user"` line carrying the `tool_result`:
+
+One Anthropic API response (`msg_01XYZ`) is written as three `type: "assistant"` lines (one per content block), followed by a `type: "user"` line carrying the `tool_result`:
 
 ```jsonl
 {"parentUuid":"u-1","uuid":"a-1","type":"assistant","timestamp":"2026-10-30T10:00:01Z","sessionId":"sess-cc","cwd":"/repo","gitBranch":"main","version":"2.0.15","message":{"id":"msg_01XYZ","model":"claude-sonnet-4-5-20250929","role":"assistant","content":[{"type":"thinking","thinking":"Check git status first.","signature":"ErUBCkY..."}],"stop_reason":null,"usage":{"input_tokens":50,"cache_creation_input_tokens":100,"cache_read_input_tokens":1000,"output_tokens":12}}}
@@ -50,7 +43,8 @@ In Claude Code, a single Anthropic API response (`msg_01XYZ`) is written as thre
 ```
 
 ### Translation to `"events"` NDJSON (`.atif-e.jsonl`)
-Line 1 emits the `meta` header, then each native turn line maps to an `EventRecord` line (normalizing Anthropic's `input_tokens = 50 + 100 + 1000 = 1150` per [Migration & Extensions: Cross-Provider Token & Cost Normalization](./migration-and-extensions.md#cross-provider-token--cost-normalization), and omitting `branch` since all four events follow sequentially without branching):
+
+Line 1 emits the `meta` header, then each native turn line maps to an `EventRecord` line (normalizing Anthropic's `input_tokens = 50 + 100 + 1000 = 1150` per [Cross-Provider Token Normalization](../SPEC.md#cross-provider-token-normalization), and omitting `branch` since all four events follow linearly):
 
 ```jsonl
 {"type":"meta","meta":{"schema_version":"ATIF-v2.0","document_type":"events","create_time":"2026-10-30T10:00:01Z"}}
@@ -60,14 +54,17 @@ Line 1 emits the `meta` header, then each native turn line maps to an `EventReco
 {"type":"event","session_id":"sess-cc","trajectory_id":"sess-cc","event":{"event_id":"u-2","timestamp":"2026-10-30T10:00:04Z","action":{"action_id":"toolu_01A","errored":false,"output":[{"text":"M src/auth.py"}],"end_time":"2026-10-30T10:00:04Z"}}}
 ```
 
-#### Single-Pass `parentUuid` Handling (Parallel Tool Calls & Non-Turn Records)
-Claude Code's native `parentUuid` is a raw causal pointer, **not** a branch indicator—converters MUST NOT blindly copy `parentUuid` into `event.branch`:
-1. **Parallel `tool_result`s are never branches**: In Claude Code 2.1+, parallel tool calls emit separate `type: "user"` `tool_result` lines whose `parentUuid` points back to each result's own `tool_use` slice (and parallel tools may also finish out of order). Always translate `tool_result` lines into `{ action }` events with `branch` omitted; Rule `R2` correlates them by `action_id = tool_use_id`.
-2. **Preserve or bridge non-turn records**: Non-turn records (`attachment`, `progress`, `queue-operation`, `file-history-snapshot`) sit in Claude Code's `parentUuid` chain. Converters may map context-bearing `attachment` records (e.g., injected `CLAUDE.md` or hook outputs) to `{ step }` (`source: "system"`) or `{ action }` (`type: "internal"`, `canonical.synthetic_context`), and may omit or emit pure bookkeeping/progress records as pass-through `type: "extension"` rows. For any native record `r` that does not emit a trajectory `EventRecord`, maintain a single-pass `bridge: Map<uuid, last_emitted_id>` (`bridge[r.uuid] = resolve(r.parentUuid) ?? last_emitted_id`) so subsequent `parentUuid` pointers resolve cleanly.
-3. **Emit `branch` only on genuine jumps**: On each emitted `{ step }` event (excluding linear continuation slices of the same `response_id` and post-tool-result turns whose `parentUuid` points to one of the current step's parallel `tool_result`s), resolve `target = resolve(logicalParentUuid ?? parentUuid)` through `bridge`. Emit `branch: { after_event_id: target }` (or `branch: {}` when `target == null` after prior events) **only** when `target` is an earlier emitted `event_id` prior to the current turn's `head`.
+#### Single-Pass `parentUuid` Handling
 
-### Consolidated `StepRecord` Row (`.atif.jsonl`)
-Rules `R6` → `R7` → `R7` → `R2` fold all four events into a single `StepRecord` with snapshot-replaced `output_tokens: 45`:
+Claude Code's `parentUuid` is a raw causal pointer, **not** a branch indicator; do not blindly copy `parentUuid` into `event.branch` (see [Streaming and Branching Rules](../SPEC.md#streaming-and-branching-rules)):
+
+1. **Parallel `tool_result`s are not branches**: In Claude Code 2.1+, parallel tool calls emit separate `type: "user"` `tool_result` lines whose `parentUuid` points back to each result's own `tool_use` slice (and parallel tools may finish out of order). Translate `tool_result` lines into `{ action }` events with `branch` omitted; Rule `R2` correlates them by `action_id = tool_use_id`.
+2. **Preserve or bridge non-turn records**: Non-turn records (`attachment`, `progress`, `queue-operation`, `file-history-snapshot`) sit in Claude Code's `parentUuid` chain. Map context-bearing `attachment` records (e.g., injected `CLAUDE.md` or hook outputs) to `{ step }` (`source: "system"`) or `{ action }` (`type: "internal"`, `canonical.synthetic_context`), and omit or emit bookkeeping records as pass-through `type: "extension"` lines. For any native record `r` that does not emit a trajectory `EventRecord`, maintain a single-pass `bridge: Map<uuid, last_emitted_id>` (`bridge[r.uuid] = resolve(r.parentUuid) ?? last_emitted_id`) so subsequent `parentUuid` pointers resolve cleanly.
+3. **Emit `branch` only on genuine jumps**: On each emitted `{ step }` event (excluding linear continuation slices of the same `response_id` and post-tool-result turns whose `parentUuid` points to one of the current step's parallel `tool_result`s), resolve `target = resolve(logicalParentUuid ?? parentUuid)` through `bridge`. Emit `branch: { after_event_id: target }` (or `branch: {}` when `target == null` after prior events) only when `target` is an earlier emitted `event_id` prior to the current turn's `head`.
+
+### Consolidated `StepRecord` (`.atif.jsonl`)
+
+Rules `R6` → `R7` → `R7` → `R2` fold all four events into one `StepRecord` with snapshot-replaced `output_tokens: 45`:
 
 ```json
 {
@@ -118,6 +115,7 @@ Rules `R6` → `R7` → `R7` → `R2` fold all four events into a single `StepRe
 ## OpenAI Codex CLI (`~/.codex/sessions/.../rollout-*.jsonl`)
 
 ### Native Codex CLI JSONL (Unkeyed Sequential Items)
+
 Codex CLI emits `response_item` lines (`reasoning`, `message`, `function_call`, `function_call_output`) and `event_msg` (`token_count`) without a shared `message.id` or `parentUuid`:
 
 ```jsonl
@@ -128,11 +126,13 @@ Codex CLI emits `response_item` lines (`reasoning`, `message`, `function_call`, 
 ```
 
 ### Translation to `"events"` NDJSON (`.atif-e.jsonl`)
-Because `branch` is omitted on linear events, Phase 1 automatically links each event to the preceding event in stream order (a Codex `thread_rolled_back` event translates 1:1 into a standalone `{"event_id": "...", "branch": {"after_event_id": "<last_kept_event_id>", "reason": "rewind"}}` with no payload, or omits `after_event_id` when rolling back all turns). During Phase 2:
-- Event `cx-1` opens `Step` $S$ in `GENERATING` (`R6`), marking OpenAI's `summary_text` with `summarized: true`.
-- Event `cx-2` merges standalone action `call_99` into $S$ (`R7`), automatically synthesizing `{ "type": "action", "action_id": "call_99" }` in `S.content`.
-- Event `cx-3` attaches the `token_count` metrics to $S$ (`R9`).
-- Event `cx-4` attaches the output and partial `canonical.shell_command.exit_code` to `call_99` and transitions $S$ to `OBSERVED` (`R2`), so the next `reasoning` or `message` item will automatically open a new `Step` $S'$ via Rule `R10`.
+
+Because `branch` is omitted on linear events, Phase 1 links each event to the preceding event in stream order. A Codex `thread_rolled_back` event translates 1:1 into a standalone `{"event_id": "...", "branch": {"after_event_id": "<last_kept_event_id>", "reason": "rewind"}}` with no payload (or omits `after_event_id` when rolling back all turns). During Phase 2:
+
+- `cx-1` opens `current_step` in `GENERATING` (`R6`), marking OpenAI's `summary_text` with `summarized: true`.
+- `cx-2` merges standalone action `call_99` into `current_step` (`R7`), synthesizing `{ "type": "action", "action_id": "call_99" }` in `content`.
+- `cx-3` attaches the `token_count` metrics to `current_step` (`R9`).
+- `cx-4` attaches the output and partial `canonical.shell_command.exit_code` to `call_99` and transitions `current_step` to `OBSERVED` (`R2`), so the next `reasoning` or `message` item opens a new step via `R10`.
 
 ```jsonl
 {"type":"meta","meta":{"schema_version":"ATIF-v2.0","document_type":"events","create_time":"2026-10-30T11:00:01Z"}}
@@ -142,13 +142,14 @@ Because `branch` is omitted on linear events, Phase 1 automatically links each e
 {"type":"event","trajectory_id":"traj-cx","event":{"event_id":"cx-4","timestamp":"2026-10-30T11:00:05Z","action":{"action_id":"call_99","output":[{"text":"Process exited with code 0\nOutput:\ntest result: ok. 4 passed"}],"canonical":{"shell_command":{"exit_code":0}},"end_time":"2026-10-30T11:00:05Z"}}}
 ```
 
-*(Notice `session_id` is omitted on this standalone single-trajectory Codex rollout because `session_id` is an optional correlating identifier.)*
+*(Note: `session_id` is omitted on this standalone single-trajectory Codex rollout because `session_id` is optional.)*
 
 ---
 
 ## Cursor CLI (`--output-format stream-json`)
 
 ### Native Cursor CLI JSONL (`model_call_id` Correlation)
+
 Cursor CLI emits top-level `thinking`, `assistant`, and `tool_call` (`started` and `completed`) events correlated by `model_call_id`:
 
 ```jsonl
@@ -159,6 +160,7 @@ Cursor CLI emits top-level `thinking`, `assistant`, and `tool_call` (`started` a
 ```
 
 ### Stateless 1:1 Translation to `"events"` NDJSON (`.atif-e.jsonl`)
+
 Mapping `model_call_id` to `TrajectoryEvent.response_id` ensures all events from `mc_77` consolidate into the same `Step` via Rules `R5`/`R7` and `R2`:
 
 ```jsonl
@@ -171,9 +173,9 @@ Mapping `model_call_id` to `TrajectoryEvent.response_id` ensures all events from
 
 ---
 
-## Reference End-to-End Consolidation Fixture (`session.atif-e.jsonl` → `session.atif.jsonl`)
+## Reference End-to-End Consolidation Fixture
 
-The complete input `"events"` document and consolidated `"trajectories"` document walked through in [ATIF v2.0 Specification: End-to-End Consolidation Walkthrough](../SPEC.md#end-to-end-consolidation-walkthrough) (including a cancelled turn `ev-5`, `branch: { after_event_id: "ev-4" }` retry on `ev-6`, line-1 `meta.manifest`, `session` rollup, Delta branch `traj-1#retry-1`, and an appended `extension` row) are also available as standalone fixtures ([`session.atif-e.jsonl`](../examples/session.atif-e.jsonl) and [`session.atif.jsonl`](../examples/session.atif.jsonl)) and provided inline below:
+The complete input `"events"` document and consolidated `"trajectories"` document walked through in [Appendix A: End-to-End Consolidation Walkthrough](../SPEC.md#appendix-a-end-to-end-consolidation-walkthrough) (including cancelled turn `ev-5`, `branch: { after_event_id: "ev-4" }` retry on `ev-6`, line-1 `meta.manifest`, `session` rollup, Delta branch `traj-1#retry-1`, and an appended `extension` record) are maintained as standalone fixtures ([`session.atif-e.jsonl`](../examples/session.atif-e.jsonl) and [`session.atif.jsonl`](../examples/session.atif.jsonl)) and included inline below:
 
 <details>
 <summary><strong>Input <code>events</code> Document (<code>session.atif-e.jsonl</code>)</strong></summary>
@@ -193,7 +195,7 @@ The complete input `"events"` document and consolidated `"trajectories"` documen
 </details>
 
 <details>
-<summary><strong>Consolidated <code>trajectories</code> Document (<code>session.atif.jsonl</code> — Winning <code>traj-1</code> + Delta Branch <code>traj-1#retry-1</code>)</strong></summary>
+<summary><strong>Consolidated <code>trajectories</code> Document (<code>session.atif.jsonl</code>)</strong></summary>
 
 ```jsonl
 {"type":"meta","meta":{"schema_version":"ATIF-v2.0","document_type":"trajectories","create_time":"2026-10-30T18:00:07Z","manifest":{"sessions":[{"type":"session","session_id":"sess-1","session":{"start_time":"2026-10-30T18:00:01Z","end_time":"2026-10-30T18:00:06Z","final_metrics":{"total_input_tokens":3800,"total_output_tokens":75,"total_cache_read_tokens":3400,"total_steps":4,"total_llm_calls":3,"total_duration_ms":5000.0}}}],"trajectories":[{"type":"trajectory","session_id":"sess-1","trajectory_id":"traj-1","trajectory":{"agent":{"name":"claude-code","model":{"name":"claude-sonnet-4-5"}},"status":"completed","step_count":3,"first_step_id":1,"start_time":"2026-10-30T18:00:01Z","end_time":"2026-10-30T18:00:06Z"}},{"type":"trajectory","session_id":"sess-1","trajectory_id":"traj-1#retry-1","trajectory":{"parent_trajectory_id":"traj-1","parent_reason":"retry","parent_step_id":2,"parent_steps_excluded":true,"agent":{"name":"claude-code","model":{"name":"claude-sonnet-4-5"}},"status":"cancelled","step_count":1,"first_step_id":3,"start_time":"2026-10-30T18:00:05Z","end_time":"2026-10-30T18:00:05Z"}}]}}}

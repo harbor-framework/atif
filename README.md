@@ -16,14 +16,15 @@ Born out of the [Harbor](https://github.com/harbor-framework/harbor) benchmarkin
 
 | Resource | Path | Description |
 | :--- | :--- | :--- |
-| **ATIF v2.0 Specification** | [`spec/v2.0/SPEC.md`](./spec/v2.0/SPEC.md) | Core normative v2.0 specification (Latest) |
+| **ATIF v2.0 Specification** | [`spec/v2.0/SPEC.md`](./spec/v2.0/SPEC.md) | Core normative v2.0 specification (Working Draft) |
 | **Canonical Actions Catalog** | [`spec/v2.0/references/canonical-actions.md`](./spec/v2.0/references/canonical-actions.md) | Normalized action kinds, file digests, and MCP provenance |
-| **Harness Translation Examples** | [`spec/v2.0/references/harness-examples.md`](./spec/v2.0/references/harness-examples.md) | Translating Claude Code, Codex, and Cursor native logs to ATIF v2.0 |
-| **Migration & Extensions** | [`spec/v2.0/references/migration-and-extensions.md`](./spec/v2.0/references/migration-and-extensions.md) | ATIF v1.x → v2.0 field mapping, token normalization, and official extensions |
+| **Official Extension Namespaces** | [`spec/v2.0/references/extensions.md`](./spec/v2.0/references/extensions.md) | Standardized `com.harborframework.{evaluation,rl,v1}` extension schemas |
 | **Wire & Warehouse Projections** | [`spec/v2.0/references/projections.md`](./spec/v2.0/references/projections.md) | Protobuf (`atif.proto`) and BigQuery/DuckDB (`warehouse.sql`) projection guide |
+| **Harness Translation Examples** | [`spec/v2.0/references/harness-examples.md`](./spec/v2.0/references/harness-examples.md) | Non-normative Claude Code, Codex CLI, and Cursor CLI translation walkthroughs |
+| **ATIF v1.x to v2.0 Migration** | [`spec/v2.0/references/v1-migration.md`](./spec/v2.0/references/v1-migration.md) | Format detection and lossless v1.0–v1.8 → v2.0 upgrade rules |
 | **Machine-Readable Schemas** | [`spec/v2.0/schema/`](./spec/v2.0/schema/) | JSON Schema 2020-12 (`*.schema.json`), `atif.proto`, and `warehouse.sql` |
 | **Reference Examples** | [`spec/v2.0/examples/`](./spec/v2.0/examples/) | Streaming (`session.atif-e.jsonl`) and consolidated (`session.atif.jsonl`) fixtures |
-| **Legacy v1.8 & History** | [`spec/v1.8/SPEC.md`](./spec/v1.8/SPEC.md) · [`spec/CHANGELOG.md`](./spec/CHANGELOG.md) | Faithful archival snapshots of ATIF v1.0–v1.8 and master version timeline |
+| **Latest Final v1.8 & History** | [`spec/v1.8/SPEC.md`](./spec/v1.8/SPEC.md) · [`spec/CHANGELOG.md`](./spec/CHANGELOG.md) | Faithful archival snapshots of ATIF v1.0–v1.8 and master version timeline |
 | **Conformance Suite** | [`conformance/README.md`](./conformance/README.md) | Language-agnostic valid/invalid and consolidation golden test vectors |
 | **Documentation Site** | [`docsite/`](./docsite/) | Static Astro + Starlight site with interactive validator and agent `.md`/skill endpoints |
 | **SDKs & Tooling** | [`sdks/README.md`](./sdks/README.md) · [`sdks/python/`](./sdks/python/) | Python SDK (`atif`) skeleton and multi-language SDK roadmap |

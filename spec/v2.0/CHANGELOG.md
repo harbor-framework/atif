@@ -1,9 +1,9 @@
 ---
 title: "ATIF v2.0 Changelog"
-description: "Summary of architectural changes, new features, and breaking changes from ATIF v1.8 to ATIF v2.0."
+description: "Summary of architectural changes, new features, and breaking changes from ATIF v1.8 to ATIF v2.0 (Working Draft)."
 atif_version: "2.0"
 schema_version: "ATIF-v2.0"
-status: "final"
+status: "draft"
 release_date: "2026-11-25"
 doc_type: "changelog"
 order: 90
@@ -13,7 +13,8 @@ supersedes: "1.8"
 
 # ATIF v2.0 Changelog
 
-- **Release Date**: 2026-11-25
+- **Status**: Working Draft
+- **Updated**: 2026-11-25
 - **Schema Version**: `ATIF-v2.0`
 - **Supersedes**: [ATIF v1.8](../v1.8/SPEC.md)
 - **Provenance**: [Harbor RFC 0004 (PR #4134)](https://github.com/harbor-framework/harbor/pull/4134)
@@ -21,7 +22,7 @@ supersedes: "1.8"
 ATIF v2.0 is a major architectural upgrade addressing streaming runtime capture, non-linear execution and branching, unified tool/observation actions with canonical semantic overlays, bounded inline payloads with content-addressed blobs, multi-environment configuration, and 1:1 Protobuf / SQL warehouse projections.
 
 > [!IMPORTANT]
-> **Breaking Changes from ATIF v1.x**: ATIF v2.0 replaces the monolithic single-JSON v1.x format (`trajectory.json`) with a unified NDJSON envelope (`AtifRecord`) and restructures `Step`, `Action`, `AgentMetadata`, `StepMetrics`, and `extensions`. Lossless automated `v1.0–v1.8 <-> v2.0` round-trip rules are specified in [ATIF v1.x Migration, Token Normalization, & Official Extensions](./references/migration-and-extensions.md).
+> **Breaking Changes from ATIF v1.x**: ATIF v2.0 replaces the monolithic single-JSON v1.x format (`trajectory.json`) with a unified NDJSON envelope (`AtifRecord`) and restructures `Step`, `Action`, `AgentMetadata`, `StepMetrics`, and `extensions`. Lossless automated `v1.0–v1.8 <-> v2.0` round-trip rules are specified in [ATIF v1.x to v2.0 Migration](./references/v1-migration.md) and [Official Extension Namespaces](./references/extensions.md).
 
 ---
 
@@ -30,12 +31,12 @@ ATIF v2.0 is a major architectural upgrade addressing streaming runtime capture,
 ### 1. Unified Dual-Mode NDJSON (`events` & `trajectories`)
 - Introduced the universal **`AtifRecord`** line envelope (`meta`, `event`, `session`, `trajectory`, `step`, `extension`) with line 1 `type: "meta"` declaring `schema_version: "ATIF-v2.0"` and `document_type: "events" | "trajectories"`.
 - Added append-only **`events` documents (`.atif-e.jsonl`)** for stateless 1:1 streaming capture from live harnesses (Claude Code, Codex CLI, Cursor, OpenCode, Pi, OpenHands) without in-memory turn buffering.
-- Added consolidated **`trajectories` documents (`.atif.jsonl` and `.atif.tar.zst`)** with an optional line-1 `meta.manifest` directory preview for fast metadata inspection and $O(1)$-memory sequential reading.
+- Added consolidated **`trajectories` documents (`.atif.jsonl` and `.atif.tar.zst`)** with an optional line-1 `meta.manifest` directory preview for fast metadata inspection and constant-memory sequential reading.
 - Defined the deterministic **Three-Phase Stream Consolidation Algorithm** (`events` → `trajectories`) including `EventBranch` cursor tracking, a 3-state turn folding machine (`IDLE`, `GENERATING`, `OBSERVED`), and derived field computation.
 
 ### 2. Sessions, Non-Linear Lineage, & Branching (`EventBranch`)
-- Promoted `Session` (`type: "session"`) and flat sibling `Trajectory` (`type: "trajectory"`) rows, replacing v1.7's recursive nested `subagent_trajectories` and v1.0's multi-file `continued_trajectory_ref`.
-- Added explicit lineage metadata (`parent_trajectory_id`, `parent_reason`, `parent_event_id`, `parent_action_id`, `parent_step_id`, `parent_steps_excluded`, `ancestor_trajectory_ids`, `child_trajectory_ids`, `trajectory_depth`) supporting subagents, forks, rewinds, retries, Best-of-$N$ candidates, compactions, and continuations.
+- Promoted `Session` (`type: "session"`) and flat sibling `Trajectory` (`type: "trajectory"`) records, replacing v1.7's recursive nested `subagent_trajectories` and v1.0's multi-file `continued_trajectory_ref`.
+- Added explicit lineage metadata (`parent_trajectory_id`, `parent_reason`, `parent_event_id`, `parent_action_id`, `parent_step_id`, `parent_steps_excluded`, `ancestor_trajectory_ids`, `child_trajectory_ids`, `trajectory_depth`) supporting subagents, forks, rewinds, retries, Best-of-N candidates, compactions, and continuations.
 - Added **Delta Mode** (`parent_steps_excluded: true`, omitting unchanged shared prefix steps while preserving `step_id` invariance via `first_step_id`) and **Self-Contained Mode** (`original_trajectory_id` / `original_trajectory_reason` per copied step).
 
 ### 3. Unified `Step.content[]`, `CompactionInfo`, Attribution, & Citations
