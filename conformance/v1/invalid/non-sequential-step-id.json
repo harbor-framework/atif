@@ -1,0 +1,20 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "v1-bad-step-id",
+  "agent": {
+    "name": "demo",
+    "version": "1.0.0"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "user",
+      "message": "First"
+    },
+    {
+      "step_id": 3,
+      "source": "agent",
+      "message": "Skipped step 2"
+    }
+  ]
+}

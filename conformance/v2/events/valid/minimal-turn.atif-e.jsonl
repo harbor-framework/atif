@@ -1,0 +1,4 @@
+{"type":"meta","meta":{"schema_version":"ATIF-v2.0","document_type":"events","create_time":"2026-10-30T10:00:00Z"}}
+{"type":"event","trajectory_id":"traj-min","event":{"event_id":"ev-0","seq":1,"timestamp":"2026-10-30T10:00:00Z","trajectory":{"agent":{"name":"minimal-agent","version":"1.0.0"}}}}
+{"type":"event","trajectory_id":"traj-min","event":{"event_id":"ev-1","seq":2,"timestamp":"2026-10-30T10:00:01Z","step":{"source":"user","content":[{"text":"Say hi."}]}}}
+{"type":"event","trajectory_id":"traj-min","event":{"event_id":"ev-2","seq":3,"timestamp":"2026-10-30T10:00:02Z","step":{"source":"agent","content":[{"text":"Hi!"}],"stop_reason":"completed","metrics":{"input_tokens":12,"output_tokens":2}}}}

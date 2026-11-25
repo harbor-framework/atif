@@ -1,0 +1,5 @@
+{"type":"meta","meta":{"schema_version":"ATIF-v2.0","document_type":"events","create_time":"2026-10-30T16:00:00Z"}}
+{"type":"event","trajectory_id":"traj-cmp","event":{"event_id":"ev-1","timestamp":"2026-10-30T16:00:01Z","step":{"source":"user","content":[{"text":"Start large refactor."}]}}}
+{"type":"event","trajectory_id":"traj-cmp","event":{"event_id":"ev-2","timestamp":"2026-10-30T16:00:02Z","step":{"source":"agent","content":[{"text":"Analyzed 40 files."}],"stop_reason":"completed"}}}
+{"type":"event","trajectory_id":"traj-cmp","event":{"event_id":"ev-3","timestamp":"2026-10-30T16:00:03Z","step":{"source":"system","compaction":{"trigger":"limit","boundary":"replace","event_id_start":"ev-1","event_id_end":"ev-2","summary":"Agent analyzed 40 files and identified 3 modules to refactor.","tokens_before":180000,"tokens_after":4200,"compaction_trajectory_id":"traj-cmp#compaction-1"}}}}
+{"type":"extension","trajectory_id":"traj-cmp","extension":{"namespace":"com.example.telemetry","data":{"collector":"otel-v2"}}}

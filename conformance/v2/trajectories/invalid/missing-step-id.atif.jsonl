@@ -1,0 +1,3 @@
+{"type":"meta","meta":{"schema_version":"ATIF-v2.0","document_type":"trajectories"}}
+{"type":"trajectory","trajectory_id":"traj-nosid","trajectory":{"agent":{"name":"demo"},"step_count":1,"first_step_id":1}}
+{"type":"step","trajectory_id":"traj-nosid","step":{"source":"user","content":[{"type":"text","text":"Missing step_id"}]}}

@@ -1,0 +1,36 @@
+{
+  "schema_version": "ATIF-v1.7",
+  "trajectory_id": "v17-broken-root",
+  "agent": {
+    "name": "claude-code",
+    "version": "1.7.0"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "source": "agent",
+      "message": "Invoked subagent.",
+      "tool_calls": [
+        {
+          "tool_call_id": "tc_1",
+          "function_name": "Task",
+          "arguments": {}
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "tc_1",
+            "content": "Done",
+            "subagent_trajectory_ref": [
+              {
+                "trajectory_id": "sub-does-not-exist"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "subagent_trajectories": []
+}

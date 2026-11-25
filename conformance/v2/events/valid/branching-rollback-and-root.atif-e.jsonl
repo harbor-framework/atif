@@ -1,0 +1,7 @@
+{"type":"meta","meta":{"schema_version":"ATIF-v2.0","document_type":"events","create_time":"2026-10-30T10:10:00Z"}}
+{"type":"event","session_id":"sess-br","event":{"event_id":"sev-0","timestamp":"2026-10-30T10:10:00Z","session":{"title":"Branching Session","tags":["rewind","root-branch"]}}}
+{"type":"event","session_id":"sess-br","trajectory_id":"traj-br","event":{"event_id":"ev-1","timestamp":"2026-10-30T10:10:01Z","step":{"source":"user","content":[{"text":"Draft 1"}]}}}
+{"type":"event","session_id":"sess-br","trajectory_id":"traj-br","event":{"event_id":"ev-2","timestamp":"2026-10-30T10:10:02Z","step":{"source":"agent","content":[{"text":"Response 1"}],"stop_reason":"completed"}}}
+{"type":"event","session_id":"sess-br","trajectory_id":"traj-br","event":{"event_id":"ev-3","branch":{"after_event_id":"ev-1","reason":"rewind"},"timestamp":"2026-10-30T10:10:03Z"}}
+{"type":"event","session_id":"sess-br","trajectory_id":"traj-br","event":{"event_id":"ev-4","timestamp":"2026-10-30T10:10:04Z","step":{"source":"agent","content":[{"text":"Response 2"}],"stop_reason":"completed"}}}
+{"type":"event","session_id":"sess-br","trajectory_id":"traj-br","event":{"event_id":"ev-5","branch":{"reason":"rewind"},"timestamp":"2026-10-30T10:10:05Z","step":{"source":"user","content":[{"text":"Start over from root"}]}}}

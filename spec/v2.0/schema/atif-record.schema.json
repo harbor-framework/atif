@@ -1,0 +1,530 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atif.dev/schema/v2.0/atif-record.schema.json",
+  "title": "ATIF v2.0 Universal NDJSON Record (AtifRecord)",
+  "description": "JSON Schema 2020-12 for a single NDJSON line (AtifRecord) in an ATIF v2.0 events (.atif-e.jsonl) or trajectories (.atif.jsonl) document.",
+  "$comment": "Validates individual AtifRecord lines cleanly on type ('meta', 'event', 'session', 'trajectory', 'step', 'extension'). Document-level invariants (line 1 meta, document_type vs allowed row types, contiguous step_id ordering, parent_steps_excluded references) are enforced across the NDJSON stream by validators.",
+  "type": "object",
+  "required": ["type"],
+  "properties": {
+    "type": { "$ref": "common-defs.schema.json#/$defs/AtifRecordType" }
+  },
+  "allOf": [
+    {
+      "if": { "type": "object", "required": ["type"], "properties": { "type": { "const": "meta" } } },
+      "then": { "$ref": "#/$defs/MetaRecord" }
+    },
+    {
+      "if": { "type": "object", "required": ["type"], "properties": { "type": { "const": "event" } } },
+      "then": { "$ref": "#/$defs/EventRecord" }
+    },
+    {
+      "if": { "type": "object", "required": ["type"], "properties": { "type": { "const": "session" } } },
+      "then": { "$ref": "#/$defs/SessionRecord" }
+    },
+    {
+      "if": { "type": "object", "required": ["type"], "properties": { "type": { "const": "trajectory" } } },
+      "then": { "$ref": "#/$defs/TrajectoryRecord" }
+    },
+    {
+      "if": { "type": "object", "required": ["type"], "properties": { "type": { "const": "step" } } },
+      "then": { "$ref": "#/$defs/StepRecord" }
+    },
+    {
+      "if": { "type": "object", "required": ["type"], "properties": { "type": { "const": "extension" } } },
+      "then": { "$ref": "#/$defs/ExtensionRecord" }
+    }
+  ],
+  "$defs": {
+    "MetaRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "meta"],
+      "properties": {
+        "type": { "const": "meta" },
+        "meta": { "$ref": "#/$defs/DocumentMeta" }
+      }
+    },
+    "DocumentMeta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "document_type"],
+      "properties": {
+        "schema_version": { "const": "ATIF-v2.0" },
+        "document_type": { "$ref": "common-defs.schema.json#/$defs/DocumentType" },
+        "create_time": { "$ref": "common-defs.schema.json#/$defs/Timestamp" },
+        "manifest": { "$ref": "#/$defs/DocumentManifest" },
+        "extensions": { "$ref": "common-defs.schema.json#/$defs/Extensions" }
+      }
+    },
+    "DocumentManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sessions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/SessionRecord" }
+        },
+        "trajectories": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ManifestTrajectoryRecord" }
+        }
+      }
+    },
+    "SessionRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "session_id", "session"],
+      "properties": {
+        "type": { "const": "session" },
+        "session_id": { "type": "string", "minLength": 1 },
+        "session": { "$ref": "#/$defs/Session" }
+      }
+    },
+    "Session": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": { "type": "string" },
+        "start_time": { "$ref": "common-defs.schema.json#/$defs/Timestamp" },
+        "end_time": { "$ref": "common-defs.schema.json#/$defs/Timestamp" },
+        "final_metrics": { "$ref": "common-defs.schema.json#/$defs/FinalMetrics" },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "extensions": { "$ref": "common-defs.schema.json#/$defs/Extensions" }
+      }
+    },
+    "SessionPatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": { "type": "string" },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "final_metrics": { "$ref": "common-defs.schema.json#/$defs/FinalMetrics" },
+        "extensions": { "$ref": "common-defs.schema.json#/$defs/Extensions" }
+      }
+    },
+    "TrajectoryProperties": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "parent_trajectory_id": { "type": "string", "minLength": 1 },
+        "parent_reason": { "$ref": "common-defs.schema.json#/$defs/TrajectoryLineageReason" },
+        "parent_event_id": { "type": "string", "minLength": 1 },
+        "parent_action_id": { "type": "string", "minLength": 1 },
+        "parent_step_id": { "type": "integer", "minimum": 1 },
+        "parent_steps_excluded": { "type": "boolean" },
+        "ancestor_trajectory_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "child_trajectory_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "trajectory_depth": { "type": "integer", "minimum": 0 },
+        "version": { "type": "string" },
+        "title": { "type": "string" },
+        "status": { "$ref": "common-defs.schema.json#/$defs/TrajectoryStatus" },
+        "error": { "type": "string" },
+        "start_time": { "$ref": "common-defs.schema.json#/$defs/Timestamp" },
+        "end_time": { "$ref": "common-defs.schema.json#/$defs/Timestamp" },
+        "agent": { "$ref": "common-defs.schema.json#/$defs/AgentMetadata" },
+        "environments": {
+          "type": "array",
+          "items": { "$ref": "common-defs.schema.json#/$defs/EnvironmentDefinition" }
+        },
+        "step_count": { "type": "integer", "minimum": 0 },
+        "first_step_id": { "type": "integer", "minimum": 1 },
+        "final_metrics": { "$ref": "common-defs.schema.json#/$defs/FinalMetrics" },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "notes": { "type": "string" },
+        "truncated_fields": { "$ref": "common-defs.schema.json#/$defs/TruncatedFieldsMap" },
+        "extensions": { "$ref": "common-defs.schema.json#/$defs/Extensions" }
+      }
+    },
+    "Trajectory": {
+      "description": "Full consolidated Trajectory payload (agent required on body rows).",
+      "type": "object",
+      "allOf": [
+        { "$ref": "#/$defs/TrajectoryProperties" },
+        { "required": ["agent"] }
+      ]
+    },
+    "ManifestTrajectory": {
+      "description": "Lightweight Trajectory preview inside meta.manifest (all inner fields optional).",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "parent_trajectory_id": { "type": "string", "minLength": 1 },
+        "parent_reason": { "$ref": "common-defs.schema.json#/$defs/TrajectoryLineageReason" },
+        "parent_event_id": { "type": "string", "minLength": 1 },
+        "parent_action_id": { "type": "string", "minLength": 1 },
+        "parent_step_id": { "type": "integer", "minimum": 1 },
+        "parent_steps_excluded": { "type": "boolean" },
+        "ancestor_trajectory_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "child_trajectory_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "trajectory_depth": { "type": "integer", "minimum": 0 },
+        "version": { "type": "string" },
+        "title": { "type": "string" },
+        "status": { "$ref": "common-defs.schema.json#/$defs/TrajectoryStatus" },
+        "error": { "type": "string" },
+        "start_time": { "$ref": "common-defs.schema.json#/$defs/Timestamp" },
+        "end_time": { "$ref": "common-defs.schema.json#/$defs/Timestamp" },
+        "agent": { "$ref": "common-defs.schema.json#/$defs/AgentMetadataPatch" },
+        "environments": {
+          "type": "array",
+          "items": { "$ref": "common-defs.schema.json#/$defs/EnvironmentDefinition" }
+        },
+        "step_count": { "type": "integer", "minimum": 0 },
+        "first_step_id": { "type": "integer", "minimum": 1 },
+        "final_metrics": { "$ref": "common-defs.schema.json#/$defs/FinalMetrics" },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "notes": { "type": "string" },
+        "truncated_fields": { "$ref": "common-defs.schema.json#/$defs/TruncatedFieldsMap" },
+        "extensions": { "$ref": "common-defs.schema.json#/$defs/Extensions" }
+      }
+    },
+    "TrajectoryRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "trajectory_id", "trajectory"],
+      "properties": {
+        "type": { "const": "trajectory" },
+        "session_id": { "type": "string", "minLength": 1 },
+        "trajectory_id": { "type": "string", "minLength": 1 },
+        "trajectory": { "$ref": "#/$defs/Trajectory" }
+      }
+    },
+    "ManifestTrajectoryRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "trajectory_id", "trajectory"],
+      "properties": {
+        "type": { "const": "trajectory" },
+        "session_id": { "type": "string", "minLength": 1 },
+        "trajectory_id": { "type": "string", "minLength": 1 },
+        "trajectory": { "$ref": "#/$defs/ManifestTrajectory" }
+      }
+    },
+    "TrajectoryPatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "parent_trajectory_id": { "type": "string", "minLength": 1 },
+        "parent_reason": { "$ref": "common-defs.schema.json#/$defs/TrajectoryLineageReason" },
+        "parent_event_id": { "type": "string", "minLength": 1 },
+        "parent_action_id": { "type": "string", "minLength": 1 },
+        "parent_steps_excluded": { "type": "boolean" },
+        "version": { "type": "string" },
+        "title": { "type": "string" },
+        "status": { "$ref": "common-defs.schema.json#/$defs/TrajectoryStatus" },
+        "error": { "type": "string" },
+        "agent": { "$ref": "common-defs.schema.json#/$defs/AgentMetadataPatch" },
+        "environments": {
+          "type": "array",
+          "items": { "$ref": "common-defs.schema.json#/$defs/EnvironmentDefinition" }
+        },
+        "final_metrics": { "$ref": "common-defs.schema.json#/$defs/FinalMetrics" },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "notes": { "type": "string" },
+        "truncated_fields": { "$ref": "common-defs.schema.json#/$defs/TruncatedFieldsMap" },
+        "extensions": { "$ref": "common-defs.schema.json#/$defs/Extensions" }
+      }
+    },
+    "Action": {
+      "description": "Consolidated Action inside a StepRecord (name required, strict ContentPart and CanonicalAction).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action_id", "name"],
+      "properties": {
+        "action_id": { "type": "string", "minLength": 1 },
+        "event_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "type": { "$ref": "common-defs.schema.json#/$defs/ActionType" },
+        "parent_action_id": { "type": "string", "minLength": 1 },
+        "executor": { "$ref": "common-defs.schema.json#/$defs/ActionExecutor" },
+        "environment_name": { "type": "string", "minLength": 1 },
+        "task_id": { "type": "string" },
+        "task_detached": { "type": "boolean" },
+        "errored": { "type": "boolean" },
+        "name": { "type": "string", "minLength": 1 },
+        "uri": { "$ref": "common-defs.schema.json#/$defs/ArdUrn" },
+        "arguments": { "$ref": "common-defs.schema.json#/$defs/JsonObject" },
+        "approval": { "$ref": "common-defs.schema.json#/$defs/ApprovalInfo" },
+        "output": {
+          "type": "array",
+          "items": { "$ref": "common-defs.schema.json#/$defs/ContentPart" }
+        },
+        "canonical": { "$ref": "canonical-actions.schema.json#/$defs/CanonicalActionStrict" },
+        "model": { "$ref": "common-defs.schema.json#/$defs/ModelMetadata" },
+        "metrics": { "$ref": "common-defs.schema.json#/$defs/StepMetrics" },
+        "start_time": { "$ref": "common-defs.schema.json#/$defs/Timestamp" },
+        "end_time": { "$ref": "common-defs.schema.json#/$defs/Timestamp" },
+        "truncated_fields": { "$ref": "common-defs.schema.json#/$defs/TruncatedFieldsMap" },
+        "extensions": { "$ref": "common-defs.schema.json#/$defs/Extensions" }
+      }
+    },
+    "ActionEvent": {
+      "description": "Streaming Action declaration or output/enrichment update inside an EventRecord.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action_id"],
+      "properties": {
+        "action_id": { "type": "string", "minLength": 1 },
+        "event_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "type": { "$ref": "common-defs.schema.json#/$defs/ActionType" },
+        "parent_action_id": { "type": "string", "minLength": 1 },
+        "executor": { "$ref": "common-defs.schema.json#/$defs/ActionExecutor" },
+        "environment_name": { "type": "string", "minLength": 1 },
+        "task_id": { "type": "string" },
+        "task_detached": { "type": "boolean" },
+        "errored": { "type": "boolean" },
+        "name": { "type": "string", "minLength": 1 },
+        "uri": { "$ref": "common-defs.schema.json#/$defs/ArdUrn" },
+        "arguments": { "$ref": "common-defs.schema.json#/$defs/JsonObject" },
+        "approval": { "$ref": "common-defs.schema.json#/$defs/ApprovalInfo" },
+        "output": {
+          "type": "array",
+          "items": { "$ref": "common-defs.schema.json#/$defs/ContentPartEvent" }
+        },
+        "canonical": { "$ref": "canonical-actions.schema.json#/$defs/CanonicalActionPartial" },
+        "model": { "$ref": "common-defs.schema.json#/$defs/ModelMetadata" },
+        "metrics": { "$ref": "common-defs.schema.json#/$defs/StepMetrics" },
+        "start_time": { "$ref": "common-defs.schema.json#/$defs/Timestamp" },
+        "end_time": { "$ref": "common-defs.schema.json#/$defs/Timestamp" },
+        "truncated_fields": { "$ref": "common-defs.schema.json#/$defs/TruncatedFieldsMap" },
+        "extensions": { "$ref": "common-defs.schema.json#/$defs/Extensions" }
+      }
+    },
+    "Step": {
+      "description": "Consolidated Step inside a StepRecord (step_id and source required).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["step_id", "source"],
+      "properties": {
+        "step_id": { "type": "integer", "minimum": 1 },
+        "event_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "original_trajectory_id": { "type": "string", "minLength": 1 },
+        "original_trajectory_reason": { "$ref": "common-defs.schema.json#/$defs/TrajectoryLineageReason" },
+        "source": { "$ref": "common-defs.schema.json#/$defs/StepSource" },
+        "agent_name": { "type": "string", "minLength": 1 },
+        "start_time": { "$ref": "common-defs.schema.json#/$defs/Timestamp" },
+        "end_time": { "$ref": "common-defs.schema.json#/$defs/Timestamp" },
+        "model": { "$ref": "common-defs.schema.json#/$defs/ModelMetadata" },
+        "compaction": { "$ref": "common-defs.schema.json#/$defs/CompactionInfo" },
+        "content": {
+          "type": "array",
+          "items": { "$ref": "common-defs.schema.json#/$defs/ContentPart" }
+        },
+        "actions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Action" }
+        },
+        "citations": {
+          "type": "array",
+          "items": { "$ref": "common-defs.schema.json#/$defs/Citation" }
+        },
+        "error": { "type": "string" },
+        "stop_reason": { "$ref": "common-defs.schema.json#/$defs/StopReason" },
+        "metrics": { "$ref": "common-defs.schema.json#/$defs/StepMetrics" },
+        "truncated_fields": { "$ref": "common-defs.schema.json#/$defs/TruncatedFieldsMap" },
+        "extensions": { "$ref": "common-defs.schema.json#/$defs/Extensions" }
+      }
+    },
+    "StepEvent": {
+      "description": "Raw Step slice inside an EventRecord (step_id omitted/optional; ContentPart.type optional).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source"],
+      "properties": {
+        "step_id": { "type": "integer", "minimum": 1 },
+        "event_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "original_trajectory_id": { "type": "string", "minLength": 1 },
+        "original_trajectory_reason": { "$ref": "common-defs.schema.json#/$defs/TrajectoryLineageReason" },
+        "source": { "$ref": "common-defs.schema.json#/$defs/StepSource" },
+        "agent_name": { "type": "string", "minLength": 1 },
+        "start_time": { "$ref": "common-defs.schema.json#/$defs/Timestamp" },
+        "end_time": { "$ref": "common-defs.schema.json#/$defs/Timestamp" },
+        "model": { "$ref": "common-defs.schema.json#/$defs/ModelMetadata" },
+        "compaction": { "$ref": "common-defs.schema.json#/$defs/CompactionInfo" },
+        "content": {
+          "type": "array",
+          "items": { "$ref": "common-defs.schema.json#/$defs/ContentPartEvent" }
+        },
+        "actions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ActionEvent" }
+        },
+        "citations": {
+          "type": "array",
+          "items": { "$ref": "common-defs.schema.json#/$defs/Citation" }
+        },
+        "error": { "type": "string" },
+        "stop_reason": { "$ref": "common-defs.schema.json#/$defs/StopReason" },
+        "metrics": { "$ref": "common-defs.schema.json#/$defs/StepMetrics" },
+        "truncated_fields": { "$ref": "common-defs.schema.json#/$defs/TruncatedFieldsMap" },
+        "extensions": { "$ref": "common-defs.schema.json#/$defs/Extensions" }
+      }
+    },
+    "StepRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "trajectory_id", "step"],
+      "properties": {
+        "type": { "const": "step" },
+        "session_id": { "type": "string", "minLength": 1 },
+        "trajectory_id": { "type": "string", "minLength": 1 },
+        "step": { "$ref": "#/$defs/Step" }
+      }
+    },
+    "TrajectoryEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_id", "timestamp"],
+      "properties": {
+        "event_id": { "type": "string", "minLength": 1 },
+        "branch": { "$ref": "common-defs.schema.json#/$defs/EventBranch" },
+        "seq": { "type": "integer", "minimum": 1 },
+        "timestamp": { "$ref": "common-defs.schema.json#/$defs/Timestamp" },
+        "response_id": { "type": "string", "minLength": 1 },
+        "session": { "$ref": "#/$defs/SessionPatch" },
+        "trajectory": { "$ref": "#/$defs/TrajectoryPatch" },
+        "step": { "$ref": "#/$defs/StepEvent" },
+        "action": { "$ref": "#/$defs/ActionEvent" },
+        "extensions": { "$ref": "common-defs.schema.json#/$defs/Extensions" }
+      },
+      "oneOf": [
+        {
+          "description": "Session patch event (must not carry branch or other payloads).",
+          "required": ["session"],
+          "not": {
+            "anyOf": [
+              { "required": ["branch"] },
+              { "required": ["trajectory"] },
+              { "required": ["step"] },
+              { "required": ["action"] }
+            ]
+          }
+        },
+        {
+          "description": "Trajectory patch event (must not carry branch or other payloads).",
+          "required": ["trajectory"],
+          "not": {
+            "anyOf": [
+              { "required": ["branch"] },
+              { "required": ["session"] },
+              { "required": ["step"] },
+              { "required": ["action"] }
+            ]
+          }
+        },
+        {
+          "description": "Step slice event (may optionally pair with branch).",
+          "required": ["step"],
+          "not": {
+            "anyOf": [
+              { "required": ["session"] },
+              { "required": ["trajectory"] },
+              { "required": ["action"] }
+            ]
+          }
+        },
+        {
+          "description": "Action declaration/update event (must not carry branch or other payloads).",
+          "required": ["action"],
+          "not": {
+            "anyOf": [
+              { "required": ["branch"] },
+              { "required": ["session"] },
+              { "required": ["trajectory"] },
+              { "required": ["step"] }
+            ]
+          }
+        },
+        {
+          "description": "Standalone branch rollback/jump event (no payload).",
+          "required": ["branch"],
+          "not": {
+            "anyOf": [
+              { "required": ["session"] },
+              { "required": ["trajectory"] },
+              { "required": ["step"] },
+              { "required": ["action"] }
+            ]
+          }
+        }
+      ]
+    },
+    "EventRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "event"],
+      "properties": {
+        "type": { "const": "event" },
+        "session_id": { "type": "string", "minLength": 1 },
+        "trajectory_id": { "type": "string", "minLength": 1 },
+        "event": { "$ref": "#/$defs/TrajectoryEvent" }
+      },
+      "if": {
+        "type": "object",
+        "required": ["event"],
+        "properties": {
+          "event": {
+            "type": "object",
+            "required": ["session"]
+          }
+        }
+      },
+      "then": {
+        "required": ["session_id"],
+        "not": { "required": ["trajectory_id"] }
+      },
+      "else": {
+        "required": ["trajectory_id"]
+      }
+    },
+    "ExtensionRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "extension"],
+      "properties": {
+        "type": { "const": "extension" },
+        "session_id": { "type": "string", "minLength": 1 },
+        "trajectory_id": { "type": "string", "minLength": 1 },
+        "extension": { "$ref": "common-defs.schema.json#/$defs/ExtensionPayload" }
+      }
+    }
+  }
+}

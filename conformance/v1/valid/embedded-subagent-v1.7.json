@@ -1,0 +1,74 @@
+{
+  "schema_version": "ATIF-v1.7",
+  "trajectory_id": "v17-root-1",
+  "agent": {
+    "name": "claude-code",
+    "version": "1.7.0",
+    "model_name": "claude-sonnet-4-5"
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "timestamp": "2026-04-27T09:00:00Z",
+      "source": "user",
+      "message": "Delegate test analysis to a subagent."
+    },
+    {
+      "step_id": 2,
+      "timestamp": "2026-04-27T09:00:02Z",
+      "source": "agent",
+      "message": "Spawning subagent.",
+      "llm_call_count": 1,
+      "tool_calls": [
+        {
+          "tool_call_id": "tc_sub_1",
+          "function_name": "Task",
+          "arguments": {
+            "prompt": "Analyze failing tests"
+          },
+          "extra": {
+            "ui_label": "Subagent"
+          }
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "tc_sub_1",
+            "content": "Subagent found 1 regression.",
+            "subagent_trajectory_ref": [
+              {
+                "trajectory_id": "v17-sub-1"
+              }
+            ],
+            "extra": {
+              "elapsed_ms": 950
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "subagent_trajectories": [
+    {
+      "schema_version": "ATIF-v1.7",
+      "trajectory_id": "v17-sub-1",
+      "agent": {
+        "name": "claude-code-subagent",
+        "version": "1.7.0"
+      },
+      "steps": [
+        {
+          "step_id": 1,
+          "source": "user",
+          "message": "Analyze failing tests"
+        },
+        {
+          "step_id": 2,
+          "source": "agent",
+          "message": "Found 1 regression in test_auth.py."
+        }
+      ]
+    }
+  ]
+}

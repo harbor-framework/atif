@@ -1,0 +1,3 @@
+{"type":"meta","meta":{"schema_version":"ATIF-v2.0","document_type":"trajectories"}}
+{"type":"trajectory","trajectory_id":"traj-child","trajectory":{"parent_trajectory_id":"traj-missing","parent_reason":"rewind","parent_steps_excluded":true,"step_count":1,"first_step_id":3,"agent":{"name":"demo"}}}
+{"type":"step","trajectory_id":"traj-child","step":{"step_id":3,"source":"agent","content":[{"type":"text","text":"Orphan delta step"}]}}
