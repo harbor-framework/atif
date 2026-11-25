@@ -50,7 +50,7 @@ function walkFiles(dir, predicate) {
 
 /**
  * Resolves a site pathname (e.g. `/guides/quickstart/`, `/spec/v2.0/index.md`, `/schema/v2.0/atif.proto`)
- * to a concrete file inside `docsite/dist/` matching Firebase Hosting `cleanUrls: true` semantics.
+ * to a concrete file inside `docsite/dist/` matching standard directory `index.html` serving.
  */
 function resolveDistUrl(urlPath) {
   const clean = urlPath.split('#')[0].split('?')[0];
@@ -69,11 +69,6 @@ function resolveDistUrl(urlPath) {
   const asDirIndex = path.join(distDir, rel, 'index.html');
   if (fs.existsSync(asDirIndex) && fs.statSync(asDirIndex).isFile()) {
     return asDirIndex;
-  }
-
-  const asHtml = path.join(distDir, `${rel}.html`);
-  if (fs.existsSync(asHtml) && fs.statSync(asHtml).isFile()) {
-    return asHtml;
   }
 
   return null;
@@ -220,6 +215,11 @@ const JSX_LEAK_PATTERNS = [
 for (const htmlFile of htmlFiles) {
   const relHtml = path.relative(distDir, htmlFile).replace(/\\/g, '/');
   if (relHtml === '404.html') continue;
+
+  check(
+    relHtml === 'index.html' || relHtml.endsWith('/index.html'),
+    `HTML page /${relHtml} is not emitted as a directory index.html page`
+  );
 
   const html = fs.readFileSync(htmlFile, 'utf-8');
   const altMatch = html.match(
@@ -416,13 +416,19 @@ if (fs.existsSync(firebasePath)) {
   try {
     const fb = JSON.parse(fs.readFileSync(firebasePath, 'utf-8'));
     check(fb?.hosting?.public === 'docsite/dist', 'firebase.json hosting.public must be "docsite/dist"');
-    check(fb?.hosting?.cleanUrls === true, 'firebase.json hosting.cleanUrls must be true');
-    check(fb?.hosting?.trailingSlash === false, 'firebase.json hosting.trailingSlash must be false');
+    check(
+      fb?.hosting?.cleanUrls === undefined,
+      'firebase.json hosting.cleanUrls must not be set'
+    );
+    check(
+      fb?.hosting?.trailingSlash === undefined,
+      'firebase.json hosting.trailingSlash must not be set'
+    );
 
     const redirects = fb?.hosting?.redirects ?? [];
     check(
-      redirects.some((r) => r.source === '/spec' && r.destination === '/spec/v2.0'),
-      'firebase.json missing /spec -> /spec/v2.0 redirect'
+      redirects.some((r) => r.source === '/spec' && r.destination === '/spec/v2.0/'),
+      'firebase.json missing /spec -> /spec/v2.0/ redirect'
     );
 
     const headers = fb?.hosting?.headers ?? [];

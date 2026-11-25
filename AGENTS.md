@@ -16,7 +16,7 @@ Operational guide for AI coding agents working in `harbor-framework/atif`.
 | `docsite/` | Static Astro + Starlight site reading `spec/` directly via Content Collections, plus interactive Ajv validator, `.md` mirrors, `/llms.txt`, and `/.well-known/skills/` DVS endpoints. |
 | `sdks/` | Official SDK packages (`sdks/python/` minimal skeleton) and multi-language roadmap (`sdks/README.md`). |
 | `rfcs/` | Specification proposal workflow (`README.md`) and `TEMPLATE.md`. |
-| `firebase.json` | Firebase Hosting static deployment configuration (`public: "docsite/dist"`, `cleanUrls`, redirects, MIME headers). |
+| `firebase.json` | Firebase Hosting static deployment configuration (`public: "docsite/dist"`, redirects, MIME headers). |
 | `.github/workflows/` | CI pipelines: `spec-ci.yml`, `docsite-ci.yml`, `python-sdk-ci.yml`. |
 
 ## Critical Invariants

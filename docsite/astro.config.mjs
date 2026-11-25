@@ -11,6 +11,9 @@ const siteUrl = getSiteUrl().replace(/\/+$/, '');
 export default defineConfig({
   site: siteUrl,
   output: 'static',
+  build: {
+    format: 'directory',
+  },
   trailingSlash: 'ignore',
   markdown: {
     processor: unified({

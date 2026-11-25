@@ -6,17 +6,15 @@
       "**/.*",
       "**/node_modules/**"
     ],
-    "cleanUrls": true,
-    "trailingSlash": false,
     "redirects": [
       {
         "source": "/spec",
-        "destination": "/spec/v2.0",
+        "destination": "/spec/v2.0/",
         "type": 302
       },
       {
         "source": "/spec/",
-        "destination": "/spec/v2.0",
+        "destination": "/spec/v2.0/",
         "type": 302
       }
     ],
