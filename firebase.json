@@ -3,7 +3,8 @@
     "public": "docsite/dist",
     "ignore": [
       "firebase.json",
-      "**/.*",
+      "**/.DS_Store",
+      "**/.git/**",
       "**/node_modules/**"
     ],
     "redirects": [

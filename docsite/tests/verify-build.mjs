@@ -438,6 +438,10 @@ if (fs.existsSync(firebasePath)) {
     const fb = JSON.parse(fs.readFileSync(firebasePath, 'utf-8'));
     check(fb?.hosting?.public === 'docsite/dist', 'firebase.json hosting.public must be "docsite/dist"');
     check(
+      !(fb?.hosting?.ignore ?? []).includes('**/.*'),
+      'firebase.json hosting.ignore must not include "**/.*" (would exclude /.well-known/skills/)'
+    );
+    check(
       fb?.hosting?.cleanUrls === undefined,
       'firebase.json hosting.cleanUrls must not be set'
     );
