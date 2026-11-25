@@ -163,6 +163,27 @@ if (fileExists('spec/v2.0/index.html')) {
       !v2Html.includes('data-spec-role="draft"'),
     'v2.0 (Latest) should not render a legacy/archived/draft status banner'
   );
+  const peleCount = (v2Html.match(/class="pele\b/g) ?? []).length;
+  check(
+    peleCount >= 2,
+    `v2.0 spec expected >=2 rendered Pele Mermaid SVGs, found ${peleCount}`
+  );
+  check(
+    !v2Html.includes('data-language="mermaid"'),
+    'v2.0 spec still has unrendered raw mermaid code block instead of Pele SVG'
+  );
+  check(
+    v2Html.includes('class="katex"') && !v2Html.includes('$O(1)$'),
+    'v2.0 spec expected rendered KaTeX math with no raw $O(1)$ literals'
+  );
+}
+
+if (fileExists('spec/v2.0/changelog/index.html')) {
+  const v2ChangelogHtml = readDist('spec/v2.0/changelog/index.html');
+  check(
+    v2ChangelogHtml.includes('class="katex"') && !v2ChangelogHtml.includes('$O(1)$'),
+    'v2.0 changelog expected rendered KaTeX math with no raw $O(1)$ literals'
+  );
 }
 
 if (fileExists('spec/v1.8/index.html')) {

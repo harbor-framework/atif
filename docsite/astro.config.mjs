@@ -3,7 +3,10 @@ import { unified } from '@astrojs/markdown-remark';
 import starlight from '@astrojs/starlight';
 import react from '@astrojs/react';
 import sitemap from '@astrojs/sitemap';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 import { buildStarlightSidebar, getSiteUrl } from './src/lib/spec-loader';
+import { remarkPeleMermaid } from './src/lib/remark-pele-mermaid';
 import { rehypeAtifSpec } from './src/lib/rehype-spec';
 
 const siteUrl = getSiteUrl().replace(/\/+$/, '');
@@ -17,7 +20,8 @@ export default defineConfig({
   trailingSlash: 'ignore',
   markdown: {
     processor: unified({
-      rehypePlugins: [rehypeAtifSpec],
+      remarkPlugins: [remarkMath, remarkPeleMermaid],
+      rehypePlugins: [rehypeKatex, rehypeAtifSpec],
     }),
   },
   integrations: [

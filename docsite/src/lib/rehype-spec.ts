@@ -66,7 +66,7 @@ export function rehypeAtifSpec() {
           }
         }
 
-        // Wrap direct <table> children in <div class="atif-table-wrap">
+        // Wrap direct <table> children in <div class="atif-table-wrap"> and tag narrow identifier columns
         if (
           child.type === 'element' &&
           child.tagName === 'table' &&
@@ -77,6 +77,7 @@ export function rehypeAtifSpec() {
             (node.properties.className as string[]).includes('atif-table-wrap')
           )
         ) {
+          annotateTableForReadability(child);
           node.children[i] = {
             type: 'element',
             tagName: 'div',
@@ -103,6 +104,86 @@ export function rehypeAtifSpec() {
 
     visit(tree);
   };
+}
+
+function extractPlainText(node: HastNode): string {
+  if (node.type === 'text' && typeof node.value === 'string') {
+    return node.value;
+  }
+  if (!Array.isArray(node.children)) return '';
+  return node.children.map(extractPlainText).join('');
+}
+
+function appendClass(node: HastNode, cls: string) {
+  const props = (node.properties ??= {});
+  const existing = props.className;
+  if (Array.isArray(existing)) {
+    if (!existing.includes(cls)) existing.push(cls);
+  } else if (typeof existing === 'string') {
+    const parts = existing.split(/\s+/).filter(Boolean);
+    if (!parts.includes(cls)) parts.push(cls);
+    props.className = parts;
+  } else {
+    props.className = [cls];
+  }
+}
+
+/**
+ * Enhances Markdown tables at build time:
+ * - Columns whose max cell text is <= 22 chars (excluding the final description column)
+ *   get `atif-col-nowrap` so short identifiers like `ev-0`, `Required`, or `v2.0` never
+ *   break mid-token and yield remaining horizontal width to prose columns.
+ * - Tables with >= 4 body rows get `atif-table--striped` for gentle row tracking.
+ */
+function annotateTableForReadability(table: HastNode) {
+  const rows: HastNode[] = [];
+  let bodyRowCount = 0;
+
+  for (const section of table.children ?? []) {
+    if (section.type !== 'element') continue;
+    if (section.tagName === 'thead' || section.tagName === 'tbody') {
+      for (const tr of section.children ?? []) {
+        if (tr.type === 'element' && tr.tagName === 'tr') {
+          rows.push(tr);
+          if (section.tagName === 'tbody') bodyRowCount++;
+        }
+      }
+    } else if (section.tagName === 'tr') {
+      rows.push(section);
+      bodyRowCount++;
+    }
+  }
+
+  if (bodyRowCount >= 4) {
+    appendClass(table, 'atif-table--striped');
+  }
+
+  const colMaxLen: number[] = [];
+  const rowCells: HastNode[][] = [];
+
+  for (const tr of rows) {
+    const cells = (tr.children ?? []).filter(
+      (c) => c.type === 'element' && (c.tagName === 'th' || c.tagName === 'td')
+    );
+    rowCells.push(cells);
+    cells.forEach((cell, idx) => {
+      const len = extractPlainText(cell).trim().length;
+      colMaxLen[idx] = Math.max(colMaxLen[idx] ?? 0, len);
+    });
+  }
+
+  const colCount = colMaxLen.length;
+  if (colCount < 2) return;
+
+  for (let colIdx = 0; colIdx < colCount - 1; colIdx++) {
+    if (colMaxLen[colIdx] <= 22) {
+      for (const cells of rowCells) {
+        if (cells[colIdx]) {
+          appendClass(cells[colIdx], 'atif-col-nowrap');
+        }
+      }
+    }
+  }
 }
 
 function tryTransformAlertBlockquote(blockquote: HastNode): HastNode | null {

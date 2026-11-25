@@ -182,15 +182,58 @@ discarded rewind/retry—is emitted as a `"trajectory"` row followed by its `"st
 optionally grouped under a `"session"` row:
 
 ```ts
-export interface MetaRecord       { type: "meta";       meta: DocumentMeta; }                                                  // Line 1 of "events" & "trajectories"
-export interface EventRecord      { type: "event";      session_id?: string; trajectory_id?: string; event: TrajectoryEvent; } // "events" body (trajectory_id required except event.session)
-export interface SessionRecord    { type: "session";    session_id: string;  session: Session; }                               // "trajectories" body & meta.manifest.sessions
-export interface TrajectoryRecord { type: "trajectory"; session_id?: string; trajectory_id: string;  trajectory: Trajectory; } // "trajectories" body & meta.manifest.trajectories
-export interface StepRecord       { type: "step";       session_id?: string; trajectory_id: string;  step: Step; }             // "trajectories" body (session_id matches trajectory)
-export interface ExtensionRecord  { type: "extension";  session_id?: string; trajectory_id?: string; extension: ExtensionPayload; } // "events" & "trajectories" body
+/** Line 1 of `"events"` and `"trajectories"` documents. */
+export interface MetaRecord {
+  type: "meta";
+  meta: DocumentMeta;
+}
+
+/** `"events"` body row (`trajectory_id` required except for `event.session`). */
+export interface EventRecord {
+  type: "event";
+  session_id?: string;
+  trajectory_id?: string;
+  event: TrajectoryEvent;
+}
+
+/** `"trajectories"` body row and `meta.manifest.sessions` entry. */
+export interface SessionRecord {
+  type: "session";
+  session_id: string;
+  session: Session;
+}
+
+/** `"trajectories"` body row and `meta.manifest.trajectories` entry. */
+export interface TrajectoryRecord {
+  type: "trajectory";
+  session_id?: string;
+  trajectory_id: string;
+  trajectory: Trajectory;
+}
+
+/** `"trajectories"` body row (`session_id` matches the parent trajectory). */
+export interface StepRecord {
+  type: "step";
+  session_id?: string;
+  trajectory_id: string;
+  step: Step;
+}
+
+/** `"events"` and `"trajectories"` body row for out-of-band extensions. */
+export interface ExtensionRecord {
+  type: "extension";
+  session_id?: string;
+  trajectory_id?: string;
+  extension: ExtensionPayload;
+}
 
 export type AtifRecord =
-  | MetaRecord | EventRecord | SessionRecord | TrajectoryRecord | StepRecord | ExtensionRecord;
+  | MetaRecord
+  | EventRecord
+  | SessionRecord
+  | TrajectoryRecord
+  | StepRecord
+  | ExtensionRecord;
 ```
 
 ```ts
@@ -274,10 +317,25 @@ single nested JSON document):
 
 ```ts
 export interface TrajectoryWithSteps {
-  type: "trajectory"; session_id?: string; trajectory_id: string; trajectory: Trajectory; steps: Step[];
+  type: "trajectory";
+  session_id?: string;
+  trajectory_id: string;
+  trajectory: Trajectory;
+  steps: Step[];
 }
-export interface AtifEventsDocument       { meta: DocumentMeta; events: EventRecord[]; extensions?: ExtensionRecord[]; }
-export interface AtifTrajectoriesDocument { meta: DocumentMeta; sessions?: SessionRecord[]; trajectories: TrajectoryWithSteps[]; extensions?: ExtensionRecord[]; }
+
+export interface AtifEventsDocument {
+  meta: DocumentMeta;
+  events: EventRecord[];
+  extensions?: ExtensionRecord[];
+}
+
+export interface AtifTrajectoriesDocument {
+  meta: DocumentMeta;
+  sessions?: SessionRecord[];
+  trajectories: TrajectoryWithSteps[];
+  extensions?: ExtensionRecord[];
+}
 ```
 
 **Normative invariants:**
@@ -703,7 +761,10 @@ export interface TrajectoryEvent {
 }
 
 export interface SessionPatch {
-  title?: string; tags?: string[]; final_metrics?: FinalMetrics; extensions?: Extensions;
+  title?: string;
+  tags?: string[];
+  final_metrics?: FinalMetrics;
+  extensions?: Extensions;
 }
 
 export interface TrajectoryPatch {
@@ -803,8 +864,7 @@ flowchart TD
     START(( )) --> IDLE(["IDLE"])
     IDLE -->|"R3: step (user or system)<br>Emit User/System Step"| IDLE
     IDLE -->|"R6: step (agent) or new action<br>Open Agent Step S"| GENERATING(["GENERATING"])
-    GENERATING -->|"R7: step (agent, same/no response_id,<br>S.stop_reason unset) or new action<br>Merge into S"| GENERATING
-    GENERATING -->|"R8: new response_id or unkeyed after stop_reason<br>Close S; Open Agent Step S'"| GENERATING
+    GENERATING -->|"R7: same/no response_id (pre-stop) → Merge into S<br>R8: new response_id / post-stop → Close S; Open S'"| GENERATING
     GENERATING -->|"R2: action output for S<br>Attach output to Action in S"| OBSERVED(["OBSERVED"])
     OBSERVED -->|"R2 / R9: remaining action outputs<br>or metrics-only update for S"| OBSERVED
     OBSERVED -->|"R10: step (agent, new content/response_id)<br>Close S; Open Agent Step S'"| GENERATING
