@@ -1,12 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 116 32" fill="none" role="img" aria-label="ATIF">
-  <rect x="0.5" y="0.5" width="31" height="31" rx="7.5" fill="#0F2626" stroke="#1E4D4D" stroke-width="1"/>
-  <path d="M10 8V24" stroke="#4FD1C5" stroke-width="2.1" stroke-linecap="round"/>
-  <path d="M10 14.5C10 14.5 13.5 14.5 16.5 16.5C19.5 18.5 22 18.5 22 18.5V23.5" stroke="#99E6DF" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M10 14.5C12.5 14.5 14.5 11.5 17 10.5H21.5" stroke="#F59E0B" stroke-width="1.8" stroke-linecap="round"/>
-  <circle cx="10" cy="8" r="2.5" fill="#4FD1C5"/>
-  <circle cx="10" cy="14.5" r="2.3" fill="#0F2626" stroke="#4FD1C5" stroke-width="1.9"/>
-  <circle cx="10" cy="24" r="2.5" fill="#4FD1C5"/>
-  <circle cx="22" cy="10.5" r="2.3" fill="#F59E0B"/>
-  <circle cx="22" cy="23.5" r="2.3" fill="#99E6DF"/>
-  <text x="42" y="22.5" fill="#182026" font-family="'Instrument Sans Variable', 'Instrument Sans', 'Source Sans 3 Variable', system-ui, -apple-system, sans-serif" font-size="19" font-weight="700" letter-spacing="0.06em">ATIF</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 338 106" fill="none" role="img" aria-label="ATIF">
+  <g fill="#182026">
+    <path d="M8 82V32A22 22 0 0 1 30 10H60A22 22 0 0 1 82 32V34L66 46V32A6 6 0 0 0 60 26H30A6 6 0 0 0 24 32V82H8Z"/>
+    <path d="M66 72.5L82 60.5V100A2 2 0 0 1 80 102H68A2 2 0 0 1 66 100V72.5Z"/>
+    <rect x="128" y="22" width="16" height="80" rx="2"/>
+    <path d="M193 22H209V86H228L220 102H170L178 86H193V22Z"/>
+    <path d="M237 22H251V50H300L292 66H251V100A2 2 0 0 1 249 102H237A2 2 0 0 1 235 100V26L237 22Z"/>
+  </g>
+  <g fill="#059669">
+    <path fill-rule="evenodd" d="M19.398 77.452L100.8 16.4A32 32 0 0 1 120 10H171L163 26H120A16 16 0 0 0 110.4 29.2L28.998 90.252A13 13 0 1 1 19.398 77.452ZM16 84A6 6 0 1 0 16 96A6 6 0 1 0 16 84Z"/>
+    <path d="M180 10H234L226 26H172L180 10Z"/>
+    <path fill-rule="evenodd" d="M243 10H313.753A13 13 0 1 1 313.753 26H235L243 10ZM324 12A6 6 0 1 0 324 24A6 6 0 1 0 324 12Z"/>
+  </g>
 </svg>

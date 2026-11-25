@@ -1,16 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <rect width="32" height="32" rx="7" fill="#0F2626"/>
-  <rect x="0.75" y="0.75" width="30.5" height="30.5" rx="6.25" stroke="#235757" stroke-width="1.5"/>
-  <!-- Main trajectory spine -->
-  <path d="M10 8V24" stroke="#4FD1C5" stroke-width="2.2" stroke-linecap="round"/>
-  <!-- Branch trajectory path -->
-  <path d="M10 14.5C10 14.5 13.5 14.5 16.5 16.5C19.5 18.5 22 18.5 22 18.5V23.5" stroke="#99E6DF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- Secondary branch to upper node -->
-  <path d="M10 14.5C12.5 14.5 14.5 11.5 17 10.5H21.5" stroke="#F59E0B" stroke-width="1.8" stroke-linecap="round"/>
-  <!-- Nodes -->
-  <circle cx="10" cy="8" r="2.7" fill="#4FD1C5"/>
-  <circle cx="10" cy="14.5" r="2.4" fill="#0F2626" stroke="#4FD1C5" stroke-width="2"/>
-  <circle cx="10" cy="24" r="2.7" fill="#4FD1C5"/>
-  <circle cx="22" cy="10.5" r="2.4" fill="#F59E0B"/>
-  <circle cx="22" cy="23.5" r="2.5" fill="#99E6DF"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" role="img" aria-label="ATIF">
+  <rect width="64" height="64" rx="14" fill="#0f172a"/>
+  <g fill="#f8fafc">
+    <path d="M11 43.8V23A12 12 0 0 1 23 11H43.8V20H23A3 3 0 0 0 20 23V43.8H11Z"/>
+    <path d="M44 35L53 26V51.5A1.5 1.5 0 0 1 51.5 53H45.5A1.5 1.5 0 0 1 44 51.5V35Z"/>
+  </g>
+  <path fill="#10b981" fill-rule="evenodd" d="M16.561 41.075L41.075 16.561A7.5 7.5 0 1 1 47.439 22.925L22.925 47.439A7.5 7.5 0 1 1 16.561 41.075ZM15.5 45.3A3.2 3.2 0 1 0 15.5 51.7A3.2 3.2 0 1 0 15.5 45.3ZM48.5 12.3A3.2 3.2 0 1 0 48.5 18.7A3.2 3.2 0 1 0 48.5 12.3Z"/>
 </svg>

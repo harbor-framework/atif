@@ -1,59 +1,39 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" fill="none">
-  <rect width="1200" height="630" fill="#13191D"/>
-  <rect x="36" y="36" width="1128" height="558" rx="16" fill="#182026" stroke="#2D3940" stroke-width="1.5"/>
+  <rect width="1200" height="630" fill="#11171B"/>
 
-  <!-- Emblem and Wordmark -->
-  <g transform="translate(88, 92)">
-    <rect width="60" height="60" rx="13" fill="#102C2C" stroke="#2D6A6A" stroke-width="1.75"/>
-    <path d="M19 15V45" stroke="#4FD1C5" stroke-width="3.8" stroke-linecap="round"/>
-    <path d="M19 27.5C19 27.5 25.5 27.5 31 31C36.5 34.5 41.5 34.5 41.5 34.5V44" stroke="#B2F5EA" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M19 27.5C23.5 27.5 27.5 22 32 20H40.5" stroke="#FBBF24" stroke-width="3.3" stroke-linecap="round"/>
-    <circle cx="19" cy="15" r="4.6" fill="#4FD1C5"/>
-    <circle cx="19" cy="27.5" r="4.2" fill="#102C2C" stroke="#4FD1C5" stroke-width="3.5"/>
-    <circle cx="19" cy="45" r="4.6" fill="#4FD1C5"/>
-    <circle cx="41.5" cy="20" r="4.2" fill="#FBBF24"/>
-    <circle cx="41.5" cy="44" r="4.2" fill="#B2F5EA"/>
+  <!-- ATIF logomark (dark variant) -->
+  <g transform="translate(84 76) scale(0.82)">
+    <g fill="#EBF0F2">
+      <path d="M8 82V32A22 22 0 0 1 30 10H60A22 22 0 0 1 82 32V34L66 46V32A6 6 0 0 0 60 26H30A6 6 0 0 0 24 32V82H8Z"/>
+      <path d="M66 72.5L82 60.5V100A2 2 0 0 1 80 102H68A2 2 0 0 1 66 100V72.5Z"/>
+      <rect x="128" y="22" width="16" height="80" rx="2"/>
+      <path d="M193 22H209V86H228L220 102H170L178 86H193V22Z"/>
+      <path d="M237 22H251V50H300L292 66H251V100A2 2 0 0 1 249 102H237A2 2 0 0 1 235 100V26L237 22Z"/>
+    </g>
+    <g fill="#10B981">
+      <path fill-rule="evenodd" d="M19.398 77.452L100.8 16.4A32 32 0 0 1 120 10H171L163 26H120A16 16 0 0 0 110.4 29.2L28.998 90.252A13 13 0 1 1 19.398 77.452ZM16 84A6 6 0 1 0 16 96A6 6 0 1 0 16 84Z"/>
+      <path d="M180 10H234L226 26H172L180 10Z"/>
+      <path fill-rule="evenodd" d="M243 10H313.753A13 13 0 1 1 313.753 26H235L243 10ZM324 12A6 6 0 1 0 324 24A6 6 0 1 0 324 12Z"/>
+    </g>
   </g>
-  <text x="168" y="135" fill="#EBF0F2" font-family="'Instrument Sans', system-ui, -apple-system, sans-serif" font-size="36" font-weight="700" letter-spacing="0.06em">ATIF</text>
-  <text x="278" y="133" fill="#63C7BE" font-family="ui-monospace, SFMono-Regular, monospace" font-size="22" font-weight="600">v2.0</text>
 
-  <!-- Main headline -->
-  <text x="88" y="264" fill="#F2F6F8" font-family="'Instrument Sans', system-ui, -apple-system, sans-serif" font-size="54" font-weight="700" letter-spacing="-0.02em">Agent Trajectory</text>
-  <text x="88" y="328" fill="#F2F6F8" font-family="'Instrument Sans', system-ui, -apple-system, sans-serif" font-size="54" font-weight="700" letter-spacing="-0.02em">Interchange Format</text>
+  <!-- Headline -->
+  <text x="88" y="296" fill="#EBF0F2" font-family="'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="68" font-weight="600" letter-spacing="-2.4">Every agent run,</text>
+  <text x="88" y="374" fill="#EBF0F2" font-family="'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="68" font-weight="600" letter-spacing="-2.4">written down the same way.</text>
 
   <!-- Subtitle -->
-  <text x="88" y="392" fill="#A6B4BC" font-family="'Source Sans 3', system-ui, -apple-system, sans-serif" font-size="24">
-    Dual-mode NDJSON open standard for streaming agent events,
-  </text>
-  <text x="88" y="426" fill="#A6B4BC" font-family="'Source Sans 3', system-ui, -apple-system, sans-serif" font-size="24">
-    consolidated trajectories, canonical actions, and warehouse projections.
-  </text>
+  <text x="88" y="432" fill="#9AA8B1" font-family="'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="26">Agent Trajectory Interchange Format — an open standard for recording,</text>
+  <text x="88" y="468" fill="#9AA8B1" font-family="'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="26">evaluating, and training on what AI agents do.</text>
 
-  <!-- Hairline-divided pipeline schematic on the right -->
-  <g transform="translate(824, 148)">
-    <rect x="0" y="0" width="288" height="324" rx="12" fill="#13191D" stroke="#2D3940" stroke-width="1.5"/>
-    <text x="24" y="36" fill="#63C7BE" font-family="ui-monospace, SFMono-Regular, monospace" font-size="14" font-weight="600">DUAL-MODE PIPELINE</text>
-    <line x1="24" y1="52" x2="264" y2="52" stroke="#2D3940" stroke-width="1"/>
-
-    <rect x="24" y="68" width="240" height="58" rx="8" fill="#182026" stroke="#31414A"/>
-    <text x="40" y="93" fill="#EBF0F2" font-family="ui-monospace, SFMono-Regular, monospace" font-size="15" font-weight="600">.atif-e.jsonl</text>
-    <text x="40" y="114" fill="#9BA9B2" font-family="system-ui, sans-serif" font-size="13">Append-only runtime events</text>
-
-    <path d="M144 126V160" stroke="#63C7BE" stroke-width="2" stroke-dasharray="4 4"/>
-    <circle cx="144" cy="143" r="3.5" fill="#FBBF24"/>
-
-    <rect x="24" y="160" width="240" height="58" rx="8" fill="#182026" stroke="#31414A"/>
-    <text x="40" y="185" fill="#EBF0F2" font-family="ui-monospace, SFMono-Regular, monospace" font-size="15" font-weight="600">.atif.jsonl</text>
-    <text x="40" y="206" fill="#9BA9B2" font-family="system-ui, sans-serif" font-size="13">Consolidated trajectories</text>
-
-    <path d="M144 218V248" stroke="#63C7BE" stroke-width="2"/>
-
-    <rect x="24" y="248" width="112" height="48" rx="8" fill="#182026" stroke="#31414A"/>
-    <text x="80" y="277" text-anchor="middle" fill="#D4DFE5" font-family="ui-monospace, SFMono-Regular, monospace" font-size="13">Protobuf</text>
-    <rect x="152" y="248" width="112" height="48" rx="8" fill="#182026" stroke="#31414A"/>
-    <text x="208" y="277" text-anchor="middle" fill="#D4DFE5" font-family="ui-monospace, SFMono-Regular, monospace" font-size="13">SQL / Parquet</text>
+  <!-- Trajectory rail: hollow start node, ascending rail, forked retry, hollow end node -->
+  <path d="M640 548L716 590Q726 596 738 596H800" stroke="#3A4852" stroke-width="5" stroke-dasharray="10 8"/>
+  <path d="M104 592L178 536Q186 530 198 530H1096" stroke="#10B981" stroke-width="12" stroke-linejoin="round"/>
+  <g fill="#11171B" stroke="#10B981">
+    <circle cx="104" cy="592" r="17" stroke-width="10"/>
+    <circle cx="390" cy="530" r="13" stroke-width="8"/>
+    <circle cx="640" cy="530" r="13" stroke-width="8"/>
+    <circle cx="890" cy="530" r="13" stroke-width="8"/>
+    <circle cx="1096" cy="530" r="17" stroke-width="10"/>
   </g>
-
-  <line x1="88" y1="504" x2="1112" y2="504" stroke="#2D3940" stroke-width="1"/>
-  <text x="88" y="544" fill="#8C9BA4" font-family="ui-monospace, SFMono-Regular, monospace" font-size="17">Apache-2.0 Open Standard  ·  JSON Schema 2020-12  ·  Protobuf  ·  BigQuery DDL</text>
+  <circle cx="814" cy="596" r="11" fill="#11171B" stroke="#3A4852" stroke-width="6"/>
 </svg>
