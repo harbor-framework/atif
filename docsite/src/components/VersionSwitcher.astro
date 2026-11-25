@@ -1,0 +1,95 @@
+---
+import type { VersionInfo } from '../lib/spec-loader';
+
+interface Props {
+  versions: VersionInfo[];
+  currentVersion: VersionInfo;
+  subPath?: 'spec' | 'changelog';
+}
+
+const { versions, currentVersion, subPath = 'spec' } = Astro.props;
+
+function targetHref(v: VersionInfo): string {
+  if (subPath === 'changelog' && v.changelogHref) {
+    return v.changelogHref;
+  }
+  return v.href;
+}
+---
+
+<div class="atif-version-switcher" data-version-role={currentVersion.role}>
+  <label for="atif-version-select" class="sr-only">Specification version</label>
+  <div class="atif-vs-control">
+    <select
+      id="atif-version-select"
+      class:list={['atif-vs-select', `atif-vs-select--${currentVersion.role}`]}
+      aria-label="Select ATIF specification version"
+      onchange="if (this.value) window.location.href = this.value;"
+    >
+      {versions.map((v) => (
+        <option
+          value={targetHref(v)}
+          selected={v.dirName === currentVersion.dirName}
+        >
+          {v.displayLabel}
+        </option>
+      ))}
+    </select>
+    <svg class="atif-vs-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+    </svg>
+  </div>
+</div>
+
+<style>
+  .atif-version-switcher {
+    display: inline-flex;
+    align-items: center;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .atif-vs-control {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .atif-vs-select {
+    appearance: none;
+    background: var(--atif-surface);
+    color: var(--sl-color-white);
+    border: 1px solid var(--atif-border-strong);
+    border-radius: 0.35rem;
+    padding: 0.28rem 1.9rem 0.28rem 0.68rem;
+    font-family: var(--sl-font-mono);
+    font-size: 0.8125rem;
+    font-weight: 550;
+    line-height: 1.4;
+    cursor: pointer;
+    transition: border-color 140ms ease, background-color 140ms ease;
+  }
+
+  .atif-vs-select--legacy {
+    border-color: var(--atif-amber-border);
+    background: var(--atif-amber-bg);
+    color: var(--atif-amber-ink);
+  }
+
+  .atif-vs-select--draft {
+    border-color: var(--atif-draft-border);
+    background: var(--atif-draft-bg);
+    color: var(--atif-draft-ink);
+  }
+
+  .atif-vs-select:hover,
+  .atif-vs-select:focus-visible {
+    border-color: var(--sl-color-accent);
+  }
+
+  .atif-vs-chevron {
+    position: absolute;
+    right: 0.52rem;
+    pointer-events: none;
+    color: var(--atif-text-muted);
+  }
+</style>

@@ -1,0 +1,26 @@
+---
+import { getLatestSpecVersion, getSiteUrl } from '../../lib/spec-loader';
+
+const latest = getLatestSpecVersion();
+const targetHref = latest ? latest.href : '/spec/v2.0/';
+const targetMdHref = latest ? latest.mdHref : '/spec/v2.0/index.md';
+const canonical = `${getSiteUrl().replace(/\/+$/, '')}${targetHref}`;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Redirecting to ATIF {latest?.dirName ?? 'v2.0'} Specification</title>
+    <meta http-equiv="refresh" content={`0; url=${targetHref}`} />
+    <link rel="canonical" href={canonical} />
+    <link rel="alternate" type="text/markdown" href={targetMdHref} title="Markdown representation" />
+  </head>
+  <body>
+    <p>
+      Redirecting to the latest specification:{' '}
+      <a href={targetHref}>ATIF {latest?.dirName ?? 'v2.0'} Specification</a>.
+    </p>
+  </body>
+</html>

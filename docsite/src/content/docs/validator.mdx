@@ -1,0 +1,19 @@
+---
+title: ATIF Validator & Trajectory Explorer
+description: Validate ATIF v2.0 (.atif-e.jsonl, .atif.jsonl) and ATIF v1.x JSON documents against JSON Schema 2020-12 and inspect steps, canonical actions, lineage, and token metrics in your browser.
+template: splash
+tableOfContents: false
+editUrl: false
+prev: false
+next: false
+---
+
+import TrajectoryValidator from '../../components/TrajectoryValidator';
+
+<div class="atif-validator-page">
+  <p class="atif-validator-intro">
+    Validate ATIF v2.0 NDJSON and v1.x JSON locally against <a href="/schema/v2.0/atif-record.schema.json">JSON Schema 2020-12</a> and inspect steps, canonical actions, lineage, and metrics.
+  </p>
+
+  <TrajectoryValidator client:load />
+</div>

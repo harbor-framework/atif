@@ -1,0 +1,129 @@
+---
+title: Agent Trajectory Interchange Format
+description: Open, dual-mode NDJSON specification for streaming AI agent runtime events and consolidated analytical trajectories.
+template: splash
+tableOfContents: false
+editUrl: false
+prev: false
+next: false
+---
+
+<div class="atif-home">
+  <section class="atif-opener">
+    <p class="atif-lead">
+      ATIF v2.0 is an open, dual-mode NDJSON specification for recording autonomous agent runs: append-only event streams at runtime and consolidated, lineage-aware trajectory documents for evaluation, analytics, and post-training. Originated in <a href="https://github.com/harbor-framework/harbor">Harbor</a> and maintained as an Apache-2.0 open standard.
+    </p>
+    <div class="atif-cta-row not-content">
+      <a href="/spec/v2.0/" class="atif-btn atif-btn--primary">Read v2.0 Specification</a>
+      <a href="/validator/" class="atif-btn atif-btn--secondary">Validate a Trajectory</a>
+      <nav class="atif-inline-links" aria-label="Secondary links">
+        <a href="/guides/quickstart/">Quickstart</a>
+        <span aria-hidden="true">·</span>
+        <a href="/guides/migrating-from-v1/">Migrating from v1.x</a>
+        <span aria-hidden="true">·</span>
+        <a href="/spec/v1.8/">v1.8 Legacy</a>
+      </nav>
+    </div>
+  </section>
+
+  <section class="atif-snippet" aria-label="Minimal ATIF v2.0 example">
+
+```jsonl title="session.atif.jsonl" wrap
+{"type":"meta","meta":{"schema_version":"ATIF-v2.0","document_type":"trajectories","create_time":"2026-10-30T18:00:07Z"}}
+{"type":"trajectory","trajectory_id":"t1","trajectory":{"status":"completed","agent":{"name":"claude-code","model":{"name":"claude-sonnet-4-5"}},"environments":[{"os":"linux","cwd":"/workspace"}]}}
+{"type":"step","trajectory_id":"t1","step":{"step_id":1,"source":"user","content":[{"type":"text","text":"Run pytest on auth."}]}}
+{"type":"step","trajectory_id":"t1","step":{"step_id":2,"source":"agent","content":[{"type":"action","action_id":"a1"}],"actions":[{"action_id":"a1","type":"tool","executor":"environment","name":"Bash","arguments":{"command":"pytest test_auth.py"},"output":[{"type":"text","text":"1 passed in 0.12s"}],"canonical":{"type":"shell_command","shell_command":{"cwd":"/workspace","command":"pytest test_auth.py","exit_code":0}}}],"stop_reason":"tools","metrics":{"input_tokens":1200,"output_tokens":45,"cache_read_tokens":1000}}}
+```
+
+  </section>
+
+  <section class="atif-section">
+    <h2>Dual-Mode NDJSON Pipeline</h2>
+    <p class="atif-section-lead">
+      Every ATIF v2.0 file starts with a line-1 <code>meta</code> record declaring <code>document_type</code>, unifying crash-safe harness logging with fast analytical reads under one <code>AtifRecord</code> line envelope.
+    </p>
+    <div class="atif-pipeline not-content">
+      <div class="atif-stage">
+        <div class="atif-stage__head">
+          <h3>Runtime Events</h3>
+          <code>.atif-e.jsonl</code>
+        </div>
+        <p>
+          Append-only <code>event</code> and <code>extension</code> rows emitted 1:1 from live agent harnesses. Captures rewinds and retries via <code>EventBranch</code> jumps without buffering turns in memory.
+        </p>
+      </div>
+      <div class="atif-stage__arrow" aria-hidden="true">→</div>
+      <div class="atif-stage">
+        <div class="atif-stage__head">
+          <h3>3-Phase Consolidation</h3>
+          <code>events → trajectories</code>
+        </div>
+        <p>
+          Deterministic transform: <strong>1.</strong> linearizes the event DAG into trunk and off-trunk branches, <strong>2.</strong> folds <code>response_id</code> slices and action outputs, <strong>3.</strong> populates <code>step_id</code>, truncation previews, and rollups.
+        </p>
+      </div>
+      <div class="atif-stage__arrow" aria-hidden="true">→</div>
+      <div class="atif-stage">
+        <div class="atif-stage__head">
+          <h3>Consolidated Trajectories</h3>
+          <code>.atif.jsonl</code>
+        </div>
+        <p>
+          Contiguous <code>1..N</code> steps per trajectory, head-of-file <code>meta.manifest</code> for O(1) indexing, optional <code>.atif.tar.zst</code> blob archives, and 1:1 Protobuf and SQL projections.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="atif-section">
+    <h2>Core Specification Design</h2>
+    <div class="atif-pillars not-content">
+      <article class="atif-pillar">
+        <h3>Non-Linear Lineage &amp; Compaction</h3>
+        <p>
+          Subagents, session forks, Best-of-N candidates, and discarded rewinds serialize as flat sibling <code>trajectory</code> rows with <code>parent_*</code> pointers and Delta Mode prefix deduplication. Context summarization lives in-place on <code>Step.compaction</code>.
+        </p>
+        <a href="/spec/v2.0/#ndjson-records-sessions-trajectories--lineage">Lineage &amp; branching rules →</a>
+      </article>
+
+      <article class="atif-pillar">
+        <h3>Colocated Actions &amp; Canonical Normalization</h3>
+        <p>
+          <code>Step.actions[]</code> collocates raw tool arguments, multimodal outputs, timing, error state, approvals, and execution plane (<code>client</code>, <code>environment</code>, <code>provider</code>, <code>external</code>) alongside an optional typed <code>Action.canonical</code> overlay across 28 action kinds.
+        </p>
+        <a href="/spec/v2.0/references/canonical-actions/">Canonical Actions Catalog →</a>
+      </article>
+
+      <article class="atif-pillar">
+        <h3>Content-Addressed Blobs &amp; Inline Previews</h3>
+        <p>
+          Oversized tool outputs, file diffs, and system prompts retain readable inline previews (16 KiB default) with local <code>truncated_fields</code> metadata and SHA-256 <code>BlobReference</code> URIs, keeping warehouse queries fast without 100 MB JSON trees.
+        </p>
+        <a href="/spec/v2.0/#inline-truncation-truncationinfo--content-addressed-blobs-blobreference">Truncation &amp; blob layout →</a>
+      </article>
+
+      <article class="atif-pillar">
+        <h3>Schemas, Projections, &amp; Agent Discovery</h3>
+        <p>
+          Co-maintained JSON Schema 2020-12, <code>proto3</code> wire definitions, six normalized warehouse SQL tables, and a language-agnostic conformance suite. Every page on this site exposes a raw <code>.md</code> mirror and an HTTP-discoverable skill.
+        </p>
+        <a href="/spec/v2.0/references/projections/">Wire &amp; Warehouse Projections →</a>
+      </article>
+    </div>
+  </section>
+
+  <section class="atif-section">
+    <h2>Machine-Readable Endpoints</h2>
+
+| Resource | Endpoint | Description |
+| :--- | :--- | :--- |
+| **Full v2.0 Spec (Markdown)** | [`/spec/v2.0/full.md`](/spec/v2.0/full.md) | Single-fetch Markdown bundle combining `SPEC.md` and all four companion references. |
+| **Agent Skill (`draft-zzn-dvs-00`)** | [`/.well-known/skills/atif/SKILL.md`](/.well-known/skills/atif/SKILL.md) | Lightweight discovery pointer indexed at [`/.well-known/skills/index.json`](/.well-known/skills/index.json). |
+| **JSON Schema 2020-12** | [`/schema/v2.0/atif-record.schema.json`](/schema/v2.0/atif-record.schema.json) | Line-level `AtifRecord` envelope (with [`canonical-actions.schema.json`](/schema/v2.0/canonical-actions.schema.json) and [`common-defs.schema.json`](/schema/v2.0/common-defs.schema.json)). |
+| **Protocol Buffers** | [`/schema/v2.0/atif.proto`](/schema/v2.0/atif.proto) | Canonical `proto3` wire definition (`buf lint` and `buf build` verified). |
+| **Warehouse SQL DDL** | [`/schema/v2.0/warehouse.sql`](/schema/v2.0/warehouse.sql) | Normalized six-table BigQuery / DuckDB schema (`sessions`, `trajectories`, `steps`, `actions`, `extension_records`, `blobs`). |
+| **Reference Fixtures** | [`/examples/v2.0/session.atif-e.jsonl`](/examples/v2.0/session.atif-e.jsonl) | Streaming events fixture paired with consolidated [`/examples/v2.0/session.atif.jsonl`](/examples/v2.0/session.atif.jsonl). |
+| **LLM Index** | [`/llms.txt`](/llms.txt) | Compact plain-text directory of Markdown specs and machine-readable schemas. |
+
+  </section>
+</div>

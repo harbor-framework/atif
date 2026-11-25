@@ -1,0 +1,133 @@
+---
+import { getCanonicalMdUrl, getSpecVersion } from '../lib/spec-loader';
+
+interface Props {
+  pathname?: string;
+  specVersionDir?: string;
+}
+
+const pathname = Astro.props.pathname ?? Astro.url.pathname;
+const mdHref = getCanonicalMdUrl(pathname);
+
+const versionMatch = pathname.match(/^\/spec\/(v\d+\.\d+)(?:\/|$)/);
+const versionDir = Astro.props.specVersionDir ?? versionMatch?.[1];
+const versionInfo = versionDir ? getSpecVersion(versionDir) : undefined;
+
+const primarySchemas = (versionInfo?.schemas ?? []).filter((s) =>
+  ['atif-record.schema.json', 'atif.proto', 'warehouse.sql'].includes(s.fileName)
+);
+---
+
+<div class="atif-agent-actions" data-pagefind-ignore>
+  <button
+    type="button"
+    class="atif-action-btn"
+    data-copy-md-url={mdHref}
+    aria-label="Copy page as Markdown"
+  >
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <rect x="5.5" y="2.5" width="8" height="9.5" rx="1.5" stroke="currentColor" stroke-width="1.35" />
+      <path d="M3.5 5.5H3a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h6.5a1 1 0 0 0 1-1v-.5" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" />
+    </svg>
+    <span class="atif-action-btn__label">Copy Markdown</span>
+  </button>
+
+  <a href={mdHref} class="atif-action-link">View .md</a>
+
+  {primarySchemas.length > 0 && (
+    <>
+      <span class="atif-action-sep" aria-hidden="true">·</span>
+      {primarySchemas.map((schema, i) => (
+        <>
+          {i > 0 && <span class="atif-action-sep" aria-hidden="true">·</span>}
+          <a href={schema.href} class="atif-action-link atif-action-link--mono">
+            {schema.fileName === 'atif-record.schema.json' ? 'JSON Schema' : schema.fileName}
+          </a>
+        </>
+      ))}
+    </>
+  )}
+</div>
+
+<script is:inline>
+  (() => {
+    if (window.__atifCopyMdBound) return;
+    window.__atifCopyMdBound = true;
+    document.addEventListener('click', async (event) => {
+      const btn = event.target instanceof Element ? event.target.closest('[data-copy-md-url]') : null;
+      if (!btn) return;
+      const url = btn.getAttribute('data-copy-md-url');
+      const label = btn.querySelector('.atif-action-btn__label');
+      if (!url || !label) return;
+      const original = label.textContent || 'Copy Markdown';
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const text = await res.text();
+        await navigator.clipboard.writeText(text);
+        label.textContent = 'Copied';
+        setTimeout(() => {
+          label.textContent = original;
+        }, 1800);
+      } catch {
+        window.open(url, '_blank', 'noopener');
+      }
+    });
+  })();
+</script>
+
+<style>
+  .atif-agent-actions {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.55rem;
+    font-size: 0.8125rem;
+  }
+
+  .atif-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.28rem 0.65rem;
+    border-radius: 0.35rem;
+    border: 1px solid var(--atif-border-strong);
+    background: var(--atif-surface);
+    color: var(--sl-color-white);
+    font-family: var(--sl-font);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1.4;
+    cursor: pointer;
+    transition: border-color 140ms ease, color 140ms ease;
+  }
+
+  .atif-action-btn:hover {
+    border-color: var(--sl-color-accent);
+    color: var(--sl-color-text-accent);
+  }
+
+  .atif-action-link {
+    color: var(--sl-color-text-accent);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in oklch, var(--sl-color-text-accent) 35%, transparent);
+    text-underline-offset: 0.2em;
+    font-weight: 500;
+    font-size: 0.8125rem;
+    transition: color 140ms ease, text-decoration-color 140ms ease;
+  }
+
+  .atif-action-link:hover {
+    text-decoration-color: currentColor;
+  }
+
+  .atif-action-link--mono {
+    font-family: var(--sl-font-mono);
+    font-size: 0.8125rem;
+  }
+
+  .atif-action-sep {
+    color: var(--atif-border-strong);
+    user-select: none;
+  }
+</style>

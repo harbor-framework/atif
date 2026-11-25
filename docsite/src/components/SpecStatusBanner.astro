@@ -1,0 +1,124 @@
+---
+import type { VersionInfo } from '../lib/spec-loader';
+
+interface Props {
+  version: VersionInfo;
+}
+
+const { version } = Astro.props;
+// Do NOT render a status banner on Latest (v2.0) — VersionSwitcher already identifies Latest.
+const shouldShow = version.role !== 'latest';
+---
+
+{shouldShow && (
+  <aside
+    class:list={['atif-status-banner', `atif-status-banner--${version.role}`]}
+    role="note"
+    data-spec-role={version.role}
+  >
+    <span class="atif-status-banner__icon" aria-hidden="true">
+      {version.role === 'legacy' && (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M8 2.2L14.2 13.2H1.8L8 2.2Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
+          <path d="M8 6.2V9.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+          <circle cx="8" cy="11.3" r="0.75" fill="currentColor" />
+        </svg>
+      )}
+      {version.role === 'archived' && (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <rect x="2.2" y="3" width="11.6" height="2.6" rx="0.8" stroke="currentColor" stroke-width="1.35" />
+          <path d="M3.2 5.6V12.2C3.2 12.75 3.65 13.2 4.2 13.2H11.8C12.35 13.2 12.8 12.75 12.8 12.2V5.6" stroke="currentColor" stroke-width="1.35" />
+          <path d="M6.4 8.5H9.6" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" />
+        </svg>
+      )}
+      {version.role === 'draft' && (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <circle cx="8" cy="8" r="5.8" stroke="currentColor" stroke-width="1.35" />
+          <path d="M8 7.4V11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+          <circle cx="8" cy="5.2" r="0.8" fill="currentColor" />
+        </svg>
+      )}
+    </span>
+
+    <div class="atif-status-banner__body">
+      {version.role === 'legacy' && (
+        <p>
+          <strong>Legacy ({version.dirName})</strong> — Final release of the ATIF v{version.major}.x line.
+          New implementations should target{' '}
+          <a href={version.latestHref}>ATIF v{version.latestVersion} (Latest)</a>{' '}
+          or read the <a href="/guides/migrating-from-v1/">v1.x to v2.0 Migration Guide</a>.
+        </p>
+      )}
+      {version.role === 'archived' && (
+        <p>
+          <strong>Archived ({version.dirName})</strong> — Historical snapshot
+          {version.releaseDate ? ` from ${version.releaseDate}` : ''}.
+          See <a href={version.latestHref}>ATIF v{version.latestVersion} (Latest)</a>
+          {version.latestInMajorVersion && version.latestInMajorHref && (
+            <>
+              {' '}or the final v{version.major}.x release at{' '}
+              <a href={version.latestInMajorHref}>ATIF v{version.latestInMajorVersion}</a>
+            </>
+          )}
+          .
+        </p>
+      )}
+      {version.role === 'draft' && (
+        <p>
+          <strong>Working Draft ({version.dirName})</strong> — Subject to change before finalization.
+          For production implementations, use{' '}
+          <a href={version.latestHref}>ATIF v{version.latestVersion} (Latest)</a>.
+        </p>
+      )}
+    </div>
+  </aside>
+)}
+
+<style>
+  .atif-status-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.7rem;
+    margin: 0 0 1.5rem 0;
+    padding: 0.8rem 1rem;
+    border-radius: 0.45rem;
+    border: 1px solid var(--atif-border);
+    font-size: 0.9rem;
+    line-height: 1.55;
+  }
+
+  .atif-status-banner__icon {
+    flex-shrink: 0;
+    display: inline-flex;
+    margin-top: 0.15rem;
+  }
+
+  .atif-status-banner__body p {
+    margin: 0;
+    max-width: none;
+  }
+
+  .atif-status-banner a {
+    font-weight: 600;
+    text-decoration: underline;
+    color: inherit;
+  }
+
+  .atif-status-banner--legacy {
+    background: var(--atif-amber-bg);
+    border-color: var(--atif-amber-border);
+    color: var(--atif-amber-ink);
+  }
+
+  .atif-status-banner--archived {
+    background: var(--atif-archive-bg);
+    border-color: var(--atif-archive-border);
+    color: var(--atif-archive-ink);
+  }
+
+  .atif-status-banner--draft {
+    background: var(--atif-draft-bg);
+    border-color: var(--atif-draft-border);
+    color: var(--atif-draft-ink);
+  }
+</style>
