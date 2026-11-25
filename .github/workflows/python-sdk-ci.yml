@@ -1,0 +1,46 @@
+name: Python SDK CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "sdks/python/**"
+      - ".github/workflows/python-sdk-ci.yml"
+  pull_request:
+    paths:
+      - "sdks/python/**"
+      - ".github/workflows/python-sdk-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: python-sdk-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint, Typecheck, & Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Sync dependencies and run checks
+        working-directory: sdks/python
+        run: |
+          uv sync --dev
+          uv run ruff check .
+          uv run ruff format --check .
+          uv run ty check
+          uv run pytest

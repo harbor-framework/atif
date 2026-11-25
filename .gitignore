@@ -1,0 +1,49 @@
+# Operating system and editor artifacts
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Node.js / Astro documentation site
+node_modules/
+docsite/dist/
+docsite/.astro/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+.env
+.env.*
+!.env.example
+
+# Python / uv SDK
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+# Generated locally by `uv sync` for the minimal Python SDK skeleton
+sdks/python/uv.lock
+
+# Firebase Hosting local state and project binding
+.firebase/
+.firebaserc
+firebase-debug.log*
+firestore-debug.log*
+
+# Scratch and temporary files
+*.log
+tmp/
+.tmp/
