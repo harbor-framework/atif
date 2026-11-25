@@ -1,0 +1,46 @@
+name: Docs Site CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docsite/**"
+      - "spec/**"
+      - "firebase.json"
+      - ".github/workflows/docsite-ci.yml"
+  pull_request:
+    paths:
+      - "docsite/**"
+      - "spec/**"
+      - "firebase.json"
+      - ".github/workflows/docsite-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docsite-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-verify:
+    name: Build & Verify Astro Docs Site
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: docsite/package-lock.json
+
+      - name: Install dependencies, build, and verify site
+        working-directory: docsite
+        run: |
+          npm ci
+          npm run build
+          node tests/verify-build.mjs

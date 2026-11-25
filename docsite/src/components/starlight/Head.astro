@@ -1,0 +1,15 @@
+---
+import Default from '@astrojs/starlight/components/Head.astro';
+import { getCanonicalMdUrl, getSiteUrl } from '../../lib/spec-loader';
+
+const siteUrl = getSiteUrl().replace(/\/+$/, '');
+const pathname = Astro.url.pathname;
+const mdHref = getCanonicalMdUrl(pathname);
+const ogImageUrl = `${siteUrl}/og-image.svg`;
+---
+
+<Default><slot /></Default>
+<link rel="alternate" type="text/markdown" href={mdHref} title="Markdown representation" />
+<meta property="og:image" content={ogImageUrl} />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:image" content={ogImageUrl} />

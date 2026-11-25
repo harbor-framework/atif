@@ -1,0 +1,1692 @@
+@import '@fontsource-variable/ibm-plex-sans';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+@import '@fontsource/ibm-plex-mono/600.css';
+@import 'katex/dist/katex.min.css';
+
+/* ==========================================================================
+   ATIF Design System — tokens derived from the logomark (OKLCH)
+
+   Logomark DNA:
+     carbon slate   #182026  oklch(0.238 0.016 240.8)   letterforms (light)
+     paper          #EBF0F2  oklch(0.952 0.006 223.5)   letterforms (dark)
+     emerald        #059669  oklch(0.596 0.127 163.2)   trajectory rail (light)
+     emerald bright #10B981  oklch(0.696 0.149 162.5)   trajectory rail (dark)
+     motifs         hollow start/end nodes, an ascending rail, 26.565° chamfers
+   ========================================================================== */
+
+:root {
+  --sl-font: 'IBM Plex Sans Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --sl-font-heading: 'IBM Plex Sans Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --sl-font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Logomark geometry: chamfered segment ends lean 8 units over 16 (atan 0.5) */
+  --atif-chamfer: -26.565deg;
+
+  /* Dark theme (Starlight dark root): carbon slate becomes the raised surface */
+  --sl-color-white: oklch(0.952 0.006 223.5);
+  --sl-color-gray-1: oklch(0.905 0.008 228);
+  --sl-color-gray-2: oklch(0.845 0.01 232);
+  --sl-color-gray-3: oklch(0.715 0.014 236);
+  --sl-color-gray-4: oklch(0.5 0.016 238);
+  --sl-color-gray-5: oklch(0.33 0.017 240);
+  --sl-color-gray-6: oklch(0.238 0.016 240.8);
+  --sl-color-black: oklch(0.188 0.013 240.8);
+
+  /* Override Starlight's built-in hue palette so default purple never leaks */
+  --sl-color-purple-low: oklch(0.27 0.045 168);
+  --sl-color-purple: oklch(0.696 0.149 162.5);
+  --sl-color-purple-high: oklch(0.845 0.13 165);
+  --sl-color-green-low: oklch(0.27 0.045 168);
+  --sl-color-green: oklch(0.696 0.149 162.5);
+  --sl-color-green-high: oklch(0.845 0.13 165);
+  --sl-color-orange-low: oklch(0.245 0.04 76);
+  --sl-color-orange: oklch(0.74 0.115 76);
+  --sl-color-orange-high: oklch(0.88 0.085 78);
+  --sl-color-blue-low: oklch(0.24 0.036 240);
+  --sl-color-blue: oklch(0.7 0.095 240);
+  --sl-color-blue-high: oklch(0.87 0.07 240);
+  --sl-color-red-low: oklch(0.245 0.048 24);
+  --sl-color-red: oklch(0.68 0.125 24);
+  --sl-color-red-high: oklch(0.88 0.085 24);
+
+  /* Single accent: logomark emerald (dark adaptation) */
+  --sl-color-accent-low: oklch(0.27 0.045 168);
+  --sl-color-accent: oklch(0.696 0.149 162.5);
+  --sl-color-accent-high: oklch(0.845 0.13 165);
+
+  --sl-color-text: var(--sl-color-gray-2);
+  --sl-color-text-accent: oklch(0.773 0.153 163.2);
+  --sl-color-text-invert: oklch(0.188 0.013 240.8);
+  --sl-color-bg: var(--sl-color-black);
+  --sl-color-bg-nav: oklch(0.205 0.014 240.8);
+  --sl-color-bg-sidebar: oklch(0.205 0.014 240.8);
+  --sl-color-bg-inline-code: oklch(0.255 0.016 240.8);
+  --sl-color-bg-accent: var(--sl-color-accent);
+  --sl-color-hairline-light: oklch(0.3 0.016 240);
+  --sl-color-hairline: oklch(0.285 0.016 240);
+  --sl-color-hairline-shade: oklch(0.27 0.015 240);
+
+  /* Typography & reading measure (scales generously on wide monitors) */
+  --sl-text-body: 1rem;
+  --sl-text-sm: 0.875rem;
+  --sl-text-xs: 0.8125rem;
+  --sl-line-height: 1.68;
+  --sl-line-height-headings: 1.24;
+  --sl-content-width: 58rem;
+  --sl-nav-height: 3.75rem;
+  --sl-sidebar-width: 17.5rem;
+
+  /* ATIF semantic surface & state tokens (dark) */
+  --atif-ground: oklch(0.188 0.013 240.8);
+  --atif-surface: oklch(0.238 0.016 240.8);
+  --atif-surface-subtle: oklch(0.212 0.014 240.8);
+  --atif-border: oklch(0.305 0.017 240);
+  --atif-border-strong: oklch(0.4 0.018 240);
+  --atif-ink: oklch(0.952 0.006 223.5);
+  --atif-text-muted: oklch(0.715 0.014 236);
+
+  /* Brand emerald for rails, nodes, rings and fills; -strong carries text on top */
+  --atif-emerald: oklch(0.696 0.149 162.5);
+  --atif-emerald-strong: oklch(0.696 0.149 162.5);
+  --atif-on-emerald: oklch(0.2 0.04 170);
+
+  --atif-accent: oklch(0.696 0.149 162.5);
+  --atif-accent-tint: oklch(0.27 0.045 168);
+  --atif-accent-tint-ink: oklch(0.86 0.115 165);
+  --atif-accent-border: oklch(0.42 0.085 166);
+
+  /* Primary action = logomark letterform colour, inverted per theme */
+  --atif-btn-bg: oklch(0.952 0.006 223.5);
+  --atif-btn-bg-hover: oklch(1 0 0);
+  --atif-btn-fg: oklch(0.188 0.013 240.8);
+  --atif-btn-arrow: oklch(0.508 0.105 165.6);
+
+  --atif-shadow-panel: 0 0 0 1px oklch(1 0 0 / 0.02) inset, 0 32px 64px -44px oklch(0 0 0 / 0.75);
+  --atif-shadow-pop: 0 1px 2px oklch(0 0 0 / 0.3), 0 12px 32px -8px oklch(0 0 0 / 0.55);
+
+  --atif-pass-bg: oklch(0.265 0.045 163);
+  --atif-pass-border: oklch(0.44 0.09 163);
+  --atif-pass-ink: oklch(0.86 0.11 163);
+
+  --atif-amber-bg: oklch(0.245 0.04 76);
+  --atif-amber-border: oklch(0.48 0.095 76);
+  --atif-amber-ink: oklch(0.88 0.085 78);
+
+  --atif-error-bg: oklch(0.245 0.048 24);
+  --atif-error-border: oklch(0.48 0.115 24);
+  --atif-error-ink: oklch(0.88 0.085 24);
+
+  --atif-draft-bg: oklch(0.24 0.036 240);
+  --atif-draft-border: oklch(0.46 0.085 240);
+  --atif-draft-ink: oklch(0.87 0.07 240);
+
+  --atif-archive-bg: oklch(0.225 0.014 240.8);
+  --atif-archive-border: oklch(0.35 0.016 240);
+  --atif-archive-ink: oklch(0.845 0.01 232);
+}
+
+:root[data-theme='light'] {
+  /* Light theme: cool paper ground, carbon slate ink (zero beige, zero purple) */
+  --sl-color-white: oklch(0.238 0.016 240.8);
+  --sl-color-gray-1: oklch(0.29 0.016 240);
+  --sl-color-gray-2: oklch(0.35 0.015 240);
+  --sl-color-gray-3: oklch(0.48 0.014 238);
+  --sl-color-gray-4: oklch(0.63 0.012 236);
+  --sl-color-gray-5: oklch(0.86 0.007 232);
+  --sl-color-gray-6: oklch(0.948 0.004 230);
+  --sl-color-gray-7: oklch(0.972 0.003 230);
+  --sl-color-black: oklch(0.995 0.0015 230);
+
+  --sl-color-purple-low: oklch(0.972 0.022 165);
+  --sl-color-purple: oklch(0.596 0.127 163.2);
+  --sl-color-purple-high: oklch(0.432 0.086 166.9);
+  --sl-color-green-low: oklch(0.972 0.022 165);
+  --sl-color-green: oklch(0.596 0.127 163.2);
+  --sl-color-green-high: oklch(0.432 0.086 166.9);
+  --sl-color-orange-low: oklch(0.965 0.024 78);
+  --sl-color-orange: oklch(0.65 0.125 74);
+  --sl-color-orange-high: oklch(0.35 0.088 64);
+  --sl-color-blue-low: oklch(0.96 0.018 240);
+  --sl-color-blue: oklch(0.48 0.095 240);
+  --sl-color-blue-high: oklch(0.32 0.08 240);
+  --sl-color-red-low: oklch(0.965 0.022 24);
+  --sl-color-red: oklch(0.52 0.135 24);
+  --sl-color-red-high: oklch(0.37 0.115 24);
+
+  /* Single accent: logomark emerald */
+  --sl-color-accent-low: oklch(0.972 0.022 165);
+  --sl-color-accent: oklch(0.596 0.127 163.2);
+  --sl-color-accent-high: oklch(0.432 0.086 166.9);
+
+  --sl-color-text: var(--sl-color-gray-2);
+  --sl-color-text-accent: oklch(0.508 0.105 165.6);
+  --sl-color-text-invert: oklch(0.995 0.0015 230);
+  --sl-color-bg: var(--sl-color-black);
+  --sl-color-bg-nav: oklch(0.995 0.0015 230);
+  --sl-color-bg-sidebar: oklch(0.982 0.0025 230);
+  --sl-color-bg-inline-code: oklch(0.955 0.004 230);
+  --sl-color-bg-accent: var(--sl-color-accent);
+  --sl-color-hairline-light: oklch(0.915 0.005 232);
+  --sl-color-hairline: oklch(0.915 0.005 232);
+  --sl-color-hairline-shade: oklch(0.915 0.005 232);
+
+  --sl-line-height: 1.65;
+
+  /* ATIF semantic surface & state tokens (light) */
+  --atif-ground: oklch(0.995 0.0015 230);
+  --atif-surface: oklch(1 0 0);
+  --atif-surface-subtle: oklch(0.975 0.003 230);
+  --atif-border: oklch(0.915 0.005 232);
+  --atif-border-strong: oklch(0.82 0.008 234);
+  --atif-ink: oklch(0.238 0.016 240.8);
+  --atif-text-muted: oklch(0.48 0.014 238);
+
+  --atif-emerald: oklch(0.596 0.127 163.2);
+  --atif-emerald-strong: oklch(0.508 0.105 165.6);
+  --atif-on-emerald: oklch(1 0 0);
+
+  --atif-accent: oklch(0.508 0.105 165.6);
+  --atif-accent-tint: oklch(0.972 0.022 165);
+  --atif-accent-tint-ink: oklch(0.39 0.08 167);
+  --atif-accent-border: oklch(0.85 0.07 165);
+
+  --atif-btn-bg: oklch(0.238 0.016 240.8);
+  --atif-btn-bg-hover: oklch(0.3 0.018 240.8);
+  --atif-btn-fg: oklch(1 0 0);
+  --atif-btn-arrow: oklch(0.773 0.153 163.2);
+
+  --atif-shadow-panel: 0 1px 0 oklch(1 0 0 / 0.8) inset, 0 1px 2px oklch(0.238 0.016 240.8 / 0.04),
+    0 28px 56px -36px oklch(0.238 0.016 240.8 / 0.28);
+  --atif-shadow-pop: 0 1px 2px oklch(0.238 0.016 240.8 / 0.06), 0 14px 36px -10px oklch(0.238 0.016 240.8 / 0.22);
+
+  --atif-pass-bg: oklch(0.965 0.03 163);
+  --atif-pass-border: oklch(0.82 0.085 163);
+  --atif-pass-ink: oklch(0.38 0.08 166);
+
+  --atif-amber-bg: oklch(0.965 0.024 78);
+  --atif-amber-border: oklch(0.78 0.095 76);
+  --atif-amber-ink: oklch(0.35 0.088 64);
+
+  --atif-error-bg: oklch(0.965 0.022 24);
+  --atif-error-border: oklch(0.77 0.095 24);
+  --atif-error-ink: oklch(0.37 0.115 24);
+
+  --atif-draft-bg: oklch(0.96 0.018 240);
+  --atif-draft-border: oklch(0.76 0.072 240);
+  --atif-draft-ink: oklch(0.32 0.08 240);
+
+  --atif-archive-bg: oklch(0.965 0.004 230);
+  --atif-archive-border: oklch(0.86 0.007 232);
+  --atif-archive-ink: oklch(0.35 0.015 240);
+}
+
+/* Generous wide-monitor content measure so spec tables, code, & diagrams breathe */
+@media (min-width: 96rem) {
+  :root {
+    --sl-content-width: 66rem;
+  }
+}
+
+@media (min-width: 112rem) {
+  :root {
+    --sl-content-width: 74rem;
+  }
+}
+
+/* ==========================================================================
+   Browser Surfaces: Selection, Focus, Links, Scrollbars, Reduced Motion
+   ========================================================================== */
+
+::selection {
+  background: var(--atif-accent-tint);
+  color: var(--atif-accent-tint-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--atif-emerald);
+  outline-offset: 2px;
+}
+
+a {
+  text-underline-offset: 0.2em;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--atif-border-strong) transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Prevent dark-mode halation with subtle positive tracking */
+:root:not([data-theme='light']) body {
+  letter-spacing: 0.005em;
+}
+
+/* ==========================================================================
+   Typography & Reading Rhythm (Read Mode)
+   ========================================================================== */
+
+h1,
+h2,
+h3,
+h4,
+h5 {
+  font-family: var(--sl-font-heading);
+  letter-spacing: -0.02em;
+  color: var(--sl-color-white);
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+.sl-markdown-content {
+  font-size: 1rem;
+  line-height: var(--sl-line-height);
+  min-width: 0;
+}
+
+.sl-markdown-content p,
+.sl-markdown-content li {
+  max-width: 82ch;
+  text-wrap: pretty;
+}
+
+.sl-markdown-content .atif-table-wrap p,
+.sl-markdown-content .atif-table-wrap li,
+.sl-markdown-content .atif-callout p,
+.sl-markdown-content .atif-callout li {
+  max-width: none;
+}
+
+/* Clear proximity rhythm: generous space above headings, zero repetitive underlines */
+.sl-markdown-content > h2,
+.sl-markdown-content .sl-heading-wrapper.level-h2 {
+  display: flex;
+  width: 100%;
+  margin-top: 2.5rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.sl-markdown-content > h2 {
+  display: block;
+  font-size: 1.55rem;
+  font-weight: 650;
+}
+
+.sl-markdown-content .sl-heading-wrapper.level-h2 h2 {
+  margin: 0 !important;
+  padding: 0 !important;
+  border-bottom: none !important;
+  font-size: 1.55rem;
+  font-weight: 650;
+}
+
+.sl-markdown-content > h3,
+.sl-markdown-content .sl-heading-wrapper.level-h3 {
+  margin-top: 2rem;
+  margin-bottom: 0.55rem;
+}
+
+.sl-markdown-content h3 {
+  font-size: 1.25rem;
+  font-weight: 620;
+}
+
+.sl-markdown-content .sl-heading-wrapper.level-h3 h3 {
+  margin: 0 !important;
+}
+
+.sl-markdown-content > h4,
+.sl-markdown-content .sl-heading-wrapper.level-h4 {
+  margin-top: 1.5rem;
+  margin-bottom: 0.45rem;
+}
+
+.sl-markdown-content h4 {
+  font-size: 1.05rem;
+  font-weight: 620;
+}
+
+/* Whisper-quiet inline code (no box borders / tag-chip soup, clean link underlines) */
+.sl-markdown-content :not(pre) > code {
+  font-family: var(--sl-font-mono);
+  font-size: 0.85em;
+  padding: 0.08em 0.3em;
+  border-radius: 3px;
+  border: none;
+  background: color-mix(in oklch, var(--atif-ink) 8%, transparent);
+  overflow-wrap: anywhere;
+}
+
+:root[data-theme='light'] .sl-markdown-content :not(pre) > code {
+  background: color-mix(in oklch, var(--atif-ink) 5.5%, transparent);
+}
+
+.sl-markdown-content a > code {
+  color: inherit;
+}
+
+/* Tabular figures for versions, counts, metrics, tables */
+table,
+.atif-tabular,
+.atif-version-switcher,
+.atif-schema-embed__path {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+   Code Blocks & Tables — Strict Zero Horizontal Page Overflow
+   ========================================================================== */
+
+.sl-markdown-content pre,
+.sl-markdown-content .expressive-code {
+  max-width: 100%;
+  margin: 1.35rem 0;
+  --ec-frm-edActTabIndTopCol: var(--atif-accent);
+  --ec-frm-frameBoxShdCssValue: none;
+  --ec-brdCol: var(--atif-border);
+}
+
+/* Prevent Starlight sibling-margin rule from creating an empty band under EC tab headers */
+.expressive-code figure.frame > * {
+  margin-top: 0 !important;
+}
+
+.expressive-code pre {
+  margin: 0 !important;
+}
+
+.atif-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 1.75rem 0;
+  border: 1px solid var(--atif-border);
+  border-radius: 0.5rem;
+  background: var(--atif-surface);
+}
+
+.atif-table-wrap table {
+  display: table !important;
+  width: 100%;
+  margin: 0 !important;
+  border-collapse: collapse;
+  font-size: 0.925rem;
+  line-height: 1.62;
+  color: var(--sl-color-gray-1);
+}
+
+.atif-table-wrap thead {
+  background: var(--atif-surface-subtle);
+}
+
+.atif-table-wrap th {
+  text-align: left;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.015em;
+  color: var(--sl-color-white);
+  padding: 0.75rem 1rem;
+  border-bottom: 1.5px solid var(--atif-border-strong);
+  white-space: nowrap;
+}
+
+.atif-table-wrap td {
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid var(--atif-border);
+  vertical-align: top;
+}
+
+.atif-table-wrap tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.atif-table-wrap table.atif-table--striped tbody tr:nth-child(even) {
+  background: color-mix(in oklch, var(--atif-ink) 2.5%, transparent);
+}
+
+:root[data-theme='light'] .atif-table-wrap table.atif-table--striped tbody tr:nth-child(even) {
+  background: color-mix(in oklch, var(--atif-ink) 1.6%, transparent);
+}
+
+.atif-table-wrap tbody tr:hover {
+  background: color-mix(in oklch, var(--atif-emerald) 6%, transparent) !important;
+}
+
+.atif-table-wrap .atif-col-nowrap {
+  white-space: nowrap;
+  width: 1%;
+}
+
+.atif-table-wrap td:first-child strong,
+.atif-table-wrap td:first-child > code {
+  color: var(--sl-color-white);
+  font-weight: 500;
+}
+
+.atif-table-wrap td code,
+.atif-table-wrap th code {
+  font-size: 0.84em;
+  padding: 0.05em 0.26em;
+  border-radius: 3px;
+  background: color-mix(in oklch, var(--atif-ink) 6.5%, transparent);
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+:root[data-theme='light'] .atif-table-wrap td code,
+:root[data-theme='light'] .atif-table-wrap th code {
+  background: color-mix(in oklch, var(--atif-ink) 4.2%, transparent);
+}
+
+/* Build-time Mermaid diagrams rendered via Obsidian's Pele (zero-JS themeable SVG) */
+.atif-diagram {
+  margin: 1.75rem 0;
+  padding: 1.5rem 1.25rem;
+  border: 1px solid var(--atif-border);
+  border-radius: 0.5rem;
+  background: var(--atif-surface);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.atif-diagram__canvas {
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+
+.atif-diagram svg.pele {
+  --pele-bg: var(--atif-surface);
+  --pele-fg: var(--atif-ink);
+  --pele-muted: var(--atif-text-muted);
+  --pele-line: var(--atif-emerald);
+  --pele-surface: var(--atif-surface-subtle);
+  --pele-surface-alt: var(--atif-accent-tint);
+  --pele-border: var(--atif-border-strong);
+  --pele-accent: var(--atif-accent);
+  --pele-font: var(--sl-font);
+  --pele-font-mono: var(--sl-font-mono);
+  --pele-radius: 6px;
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* KaTeX math sizing aligned with IBM Plex Sans body */
+.katex {
+  font-size: 1.02em;
+}
+
+/* Starlight Callouts / Asides: full 1px border + calm OKLCH surface tint (zero purple/side stripes) */
+.starlight-aside {
+  border: 1px solid var(--atif-border) !important;
+  border-inline-start-width: 1px !important;
+  border-radius: 0.45rem;
+  background: var(--atif-surface-subtle);
+  padding: 1rem 1.15rem;
+  color: var(--sl-color-gray-1);
+}
+
+.starlight-aside--note,
+.starlight-aside--tip {
+  background: var(--atif-accent-tint) !important;
+  border-color: var(--atif-accent-border) !important;
+  color: var(--sl-color-white);
+}
+
+.starlight-aside--note .starlight-aside__title,
+.starlight-aside--tip .starlight-aside__title,
+.starlight-aside--note .starlight-aside__icon,
+.starlight-aside--tip .starlight-aside__icon {
+  color: var(--atif-accent-tint-ink) !important;
+}
+
+.starlight-aside--note a,
+.starlight-aside--tip a {
+  color: var(--atif-accent-tint-ink) !important;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.starlight-aside--caution {
+  background: var(--atif-amber-bg) !important;
+  border-color: var(--atif-amber-border) !important;
+  color: var(--atif-amber-ink);
+}
+
+.starlight-aside--caution .starlight-aside__title,
+.starlight-aside--caution .starlight-aside__icon,
+.starlight-aside--caution a {
+  color: var(--atif-amber-ink) !important;
+}
+
+.starlight-aside--danger {
+  background: var(--atif-error-bg) !important;
+  border-color: var(--atif-error-border) !important;
+  color: var(--atif-error-ink);
+}
+
+.starlight-aside--danger .starlight-aside__title,
+.starlight-aside--danger .starlight-aside__icon,
+.starlight-aside--danger a {
+  color: var(--atif-error-ink) !important;
+}
+
+/* Starlight Sidebar polish: crisp active state, calm OKLCH badges (no neon green/purple) */
+.sidebar-content a[aria-current='page'],
+.sidebar-content a[aria-current='page']:hover,
+.sidebar-content a[aria-current='page']:focus {
+  background-color: var(--atif-accent-tint);
+  color: var(--atif-accent-tint-ink);
+  font-weight: 600;
+}
+
+.sidebar-content .sl-badge,
+.sl-badge {
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  border-radius: 0.25rem;
+  padding: 0.08rem 0.42rem;
+}
+
+.sl-badge.success,
+.sl-badge.tip {
+  background-color: var(--atif-accent-tint) !important;
+  border-color: var(--atif-accent-border) !important;
+  color: var(--atif-accent-tint-ink) !important;
+}
+
+.sl-badge.caution {
+  background-color: var(--atif-amber-bg) !important;
+  border-color: var(--atif-amber-border) !important;
+  color: var(--atif-amber-ink) !important;
+}
+
+.sl-badge.note {
+  background-color: var(--atif-draft-bg) !important;
+  border-color: var(--atif-draft-border) !important;
+  color: var(--atif-draft-ink) !important;
+}
+
+.sl-badge.default {
+  background-color: var(--atif-archive-bg) !important;
+  border-color: var(--atif-archive-border) !important;
+  color: var(--atif-archive-ink) !important;
+}
+
+/* Starlight wide Operate-mode workspace when TOC is disabled (e.g. /validator/) */
+:root[data-has-sidebar]:not([data-has-toc]) {
+  --sl-content-width: 78rem;
+}
+
+/* Splash landing page refinements: crisp editorial spacing, zero bloat */
+[data-page-template='splash'] .sl-container,
+:root:not([data-has-sidebar]) .sl-container {
+  max-width: 80rem;
+}
+
+/* Starlight primary / secondary buttons: carbon-ink primary, hairline secondary */
+.sl-link-button.primary {
+  background: var(--atif-btn-bg);
+  border-color: var(--atif-btn-bg);
+  color: var(--atif-btn-fg);
+  font-weight: 600;
+}
+
+.sl-link-button.secondary {
+  border-color: var(--atif-border-strong);
+  color: var(--sl-color-white);
+  background: var(--atif-surface);
+}
+
+/* Ensure main column never overflows horizontally on narrow mobile screens */
+.main-pane,
+.content-panel,
+.sl-container {
+  min-width: 0;
+}
+
+@media (max-width: 48rem) {
+  .sl-markdown-content h2 {
+    font-size: 1.35rem;
+    margin-top: 2rem;
+  }
+
+  .sl-markdown-content h3 {
+    font-size: 1.15rem;
+    margin-top: 1.6rem;
+  }
+}
+
+/* GitHub-style alert callouts converted by rehypeAtifSpec (full 1px border, no heavy stripe) */
+.atif-callout {
+  margin: 1.5rem 0;
+  padding: 0.9rem 1.1rem;
+  border-radius: 0.45rem;
+  border: 1px solid var(--atif-border);
+  background: var(--atif-surface-subtle);
+  font-size: 0.94rem;
+  line-height: 1.6;
+}
+
+.atif-callout__title {
+  margin: 0 0 0.35rem 0 !important;
+  font-family: var(--sl-font-heading);
+  font-size: 0.875rem;
+  font-weight: 650;
+  color: var(--sl-color-white);
+}
+
+.atif-callout__body > :first-child {
+  margin-top: 0 !important;
+}
+
+.atif-callout__body > :last-child {
+  margin-bottom: 0 !important;
+}
+
+.atif-callout--note,
+.atif-callout--important,
+.atif-callout--tip {
+  background: var(--atif-accent-tint);
+  border-color: var(--atif-accent-border);
+}
+
+.atif-callout--note .atif-callout__title,
+.atif-callout--important .atif-callout__title,
+.atif-callout--tip .atif-callout__title {
+  color: var(--atif-accent-tint-ink);
+}
+
+.atif-callout--note,
+.atif-callout--important,
+.atif-callout--tip {
+  color: var(--sl-color-white);
+}
+
+.atif-callout--warning {
+  background: var(--atif-amber-bg);
+  border-color: var(--atif-amber-border);
+  color: var(--atif-amber-ink);
+}
+
+.atif-callout--warning .atif-callout__title {
+  color: var(--atif-amber-ink);
+}
+
+.atif-callout--caution {
+  background: var(--atif-error-bg);
+  border-color: var(--atif-error-border);
+  color: var(--atif-error-ink);
+}
+
+.atif-callout--caution .atif-callout__title {
+  color: var(--atif-error-ink);
+}
+
+
+/* ==========================================================================
+   Site Chrome — calm header, sidebar, table of contents, panels
+   ========================================================================== */
+
+.page > header.header {
+  background-color: color-mix(in oklab, var(--sl-color-bg-nav) 92%, transparent);
+  -webkit-backdrop-filter: saturate(1.4) blur(14px);
+  backdrop-filter: saturate(1.4) blur(14px);
+  border-bottom-color: var(--atif-border);
+}
+
+site-search button[data-open-modal] {
+  border-radius: 0.5rem;
+}
+
+@media (min-width: 50rem) {
+  site-search button[data-open-modal] {
+    border-color: var(--atif-border);
+    background: var(--atif-surface-subtle);
+    color: var(--atif-text-muted);
+    font-size: 0.875rem;
+    transition: border-color 140ms ease, color 140ms ease;
+  }
+
+  site-search button[data-open-modal]:hover {
+    border-color: var(--atif-border-strong);
+    color: var(--sl-color-white);
+  }
+}
+
+/* Sidebar: quiet group labels, compact links, emerald-tinted current page */
+.sidebar-content {
+  gap: 0.6rem;
+}
+
+.sidebar-content .large {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--sl-color-white);
+}
+
+.sidebar-content a {
+  font-size: 0.875rem;
+  color: var(--sl-color-gray-2);
+  border-radius: 0.375rem;
+  transition: color 120ms ease, background-color 120ms ease;
+}
+
+.sidebar-content a:hover,
+.sidebar-content a:focus {
+  color: var(--sl-color-white);
+}
+
+.sidebar-content a[aria-current='page'],
+.sidebar-content a[aria-current='page']:hover,
+.sidebar-content a[aria-current='page']:focus {
+  background-color: var(--atif-accent-tint);
+  color: var(--atif-accent-tint-ink);
+  font-weight: 600;
+}
+
+.sidebar-content summary {
+  border-radius: 0.375rem;
+}
+
+.sidebar-content summary .caret {
+  color: var(--atif-text-muted);
+  font-size: 1rem;
+}
+
+/* Right-hand table of contents: small-caps eyebrow, hairline rhythm */
+.right-sidebar {
+  border-inline-start-color: var(--atif-border);
+}
+
+.right-sidebar-panel h2 {
+  margin-bottom: 0.6rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--atif-text-muted);
+}
+
+.right-sidebar-panel a {
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--atif-text-muted);
+  transition: color 120ms ease;
+}
+
+.right-sidebar-panel a:hover {
+  color: var(--sl-color-white);
+}
+
+.right-sidebar-panel a[aria-current='true'],
+.right-sidebar-panel a[aria-current='true']:hover {
+  color: var(--sl-color-text-accent);
+  font-weight: 600;
+}
+
+/* Page header panel hugs the title; one hairline separates it from the body */
+main > .content-panel:first-child {
+  padding-top: 1.35rem;
+  padding-bottom: 1.4rem;
+}
+
+.content-panel + .content-panel {
+  border-top-color: var(--atif-border);
+}
+
+/* The first block under the title sits close to the hairline, whatever it is */
+.sl-markdown-content > :is(h2, .sl-heading-wrapper, .atif-table-wrap, ul, ol, p):first-child {
+  margin-top: 0.35rem;
+}
+
+/* Prev / next pagination: flat, hairline, emerald on hover */
+.pagination-links a {
+  border-color: var(--atif-border);
+  border-radius: 0.6rem;
+  box-shadow: none;
+  transition: border-color 140ms ease;
+}
+
+.pagination-links a:hover {
+  border-color: var(--atif-emerald);
+}
+
+/* ==========================================================================
+   Landing Page (/) — human-first story told with logomark motifs
+   ========================================================================== */
+
+main:has(.atif-home) .content-panel:first-of-type {
+  padding-top: clamp(2rem, 4.5vw, 3.75rem);
+  padding-bottom: 0;
+}
+
+main:has(.atif-home) .content-panel + .content-panel {
+  border-top: none;
+  padding-top: 0;
+}
+
+main:has(.atif-home) .sl-markdown-content {
+  line-height: 1.6;
+}
+
+.atif-home {
+  display: flex;
+  flex-direction: column;
+}
+
+.atif-home code {
+  font-family: var(--sl-font-mono);
+}
+
+.atif-home .not-content :not(pre) > code {
+  font-size: 0.86em;
+  padding: 0.08em 0.32em;
+  border-radius: 3px;
+  background: color-mix(in oklch, var(--atif-ink) 7%, transparent);
+  color: var(--sl-color-white);
+}
+
+/* --- Hero ---------------------------------------------------------------- */
+
+.atif-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: clamp(2rem, 5vw, 4.75rem);
+  align-items: start;
+  padding-block: clamp(1.1rem, 2.2vw, 1.75rem) clamp(3rem, 6vw, 5.25rem);
+}
+
+.atif-hero__copy {
+  padding-top: clamp(0.25rem, 2.4vw, 2.25rem);
+}
+
+.atif-hero__headline {
+  margin: 0;
+  font-family: var(--sl-font-heading);
+  font-size: clamp(2.5rem, 4.7vw, 4.05rem);
+  font-weight: 650;
+  line-height: 1.03;
+  letter-spacing: -0.038em;
+  color: var(--sl-color-white);
+  text-wrap: balance;
+}
+
+.atif-hero__lede {
+  margin: 1.5rem 0 0;
+  max-width: 34.5rem;
+  font-size: clamp(1.0625rem, 1.25vw, 1.1875rem);
+  line-height: 1.6;
+  color: var(--sl-color-gray-2);
+  text-wrap: pretty;
+}
+
+.atif-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 0.85rem;
+  margin-top: 2rem;
+}
+
+.atif-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 1.15rem;
+  border: 1px solid transparent;
+  border-radius: 0.6rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.005em;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+}
+
+.atif-btn--primary {
+  background: var(--atif-btn-bg);
+  color: var(--atif-btn-fg);
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.16);
+}
+
+.atif-btn--primary::after {
+  content: '→';
+  color: var(--atif-btn-arrow);
+  font-weight: 500;
+  transition: transform 180ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.atif-btn--primary:hover {
+  background: var(--atif-btn-bg-hover);
+}
+
+.atif-btn--primary:hover::after {
+  transform: translateX(3px);
+}
+
+.atif-btn--secondary {
+  background: var(--atif-surface);
+  border-color: var(--atif-border-strong);
+  color: var(--sl-color-white);
+}
+
+.atif-btn--secondary:hover {
+  border-color: var(--atif-emerald);
+}
+
+.atif-textlink {
+  margin-inline-start: 0.6rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--sl-color-white);
+  text-decoration: underline;
+  text-decoration-color: var(--atif-emerald);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.34em;
+  transition: color 140ms ease;
+}
+
+.atif-textlink:hover {
+  color: var(--sl-color-text-accent);
+}
+
+.atif-hero__fineprint {
+  margin: 1.6rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--atif-text-muted);
+}
+
+.atif-hero__fineprint a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--atif-border-strong);
+  text-underline-offset: 0.22em;
+}
+
+.atif-hero__fineprint a:hover {
+  color: var(--sl-color-white);
+}
+
+/* --- Sections ------------------------------------------------------------ */
+
+.atif-section {
+  padding-block: clamp(3.25rem, 6.5vw, 5.75rem);
+  border-top: 1px solid var(--atif-border);
+}
+
+.atif-section__head {
+  max-width: 44rem;
+  margin-bottom: clamp(2rem, 3.5vw, 3rem);
+}
+
+.atif-section__head h2,
+.atif-why h2 {
+  margin: 0;
+  font-size: clamp(1.7rem, 2.7vw, 2.3rem);
+  font-weight: 650;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: var(--sl-color-white);
+  text-wrap: balance;
+}
+
+.atif-section__head p {
+  margin: 0.95rem 0 0;
+  max-width: 40rem;
+  font-size: 1.0625rem;
+  line-height: 1.62;
+  color: var(--sl-color-gray-2);
+  text-wrap: pretty;
+}
+
+/* Why: statement on the left, plain-spoken reasoning on the right */
+.atif-why {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: clamp(1.5rem, 5vw, 4.75rem);
+  align-items: start;
+}
+
+.atif-why__prose p {
+  margin: 0;
+  max-width: 38rem;
+  font-size: clamp(1.0625rem, 1.3vw, 1.2rem);
+  line-height: 1.6;
+  color: var(--sl-color-gray-1);
+  text-wrap: pretty;
+}
+
+.atif-why__prose p + p {
+  margin-top: 1.1rem;
+  color: var(--sl-color-gray-2);
+}
+
+.atif-audiences {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(1.5rem, 3vw, 3rem);
+  margin-top: clamp(2.5rem, 4.5vw, 4rem);
+}
+
+/* Each audience hangs from a hairline rail that starts at a hollow node */
+.atif-audience {
+  position: relative;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--atif-border-strong);
+}
+
+.atif-audience::before {
+  content: '';
+  position: absolute;
+  top: -0.375rem;
+  left: 0;
+  width: 0.6875rem;
+  height: 0.6875rem;
+  border: 2.5px solid var(--atif-emerald);
+  border-radius: 50%;
+  background: var(--atif-ground);
+  box-sizing: border-box;
+}
+
+.atif-audience h3 {
+  margin: 0;
+  font-family: var(--sl-font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--atif-text-muted);
+}
+
+.atif-audience p {
+  margin: 0.7rem 0 0;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--sl-color-gray-1);
+  text-wrap: pretty;
+}
+
+/* How it works: three beats strung on the logomark's segmented rail */
+.atif-flow {
+  --flow-node: 1.375rem;
+  --flow-rail: 0.4375rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: clamp(1.5rem, 3vw, 3rem);
+}
+
+.atif-flow__step {
+  position: relative;
+  padding-top: calc(var(--flow-node) + 1.5rem);
+}
+
+.atif-flow__step::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--flow-node);
+  height: var(--flow-node);
+  border: var(--flow-rail) solid var(--atif-emerald);
+  border-radius: 50%;
+  background: var(--atif-ground);
+  box-sizing: border-box;
+  z-index: 1;
+}
+
+.atif-flow__step::after {
+  content: '';
+  position: absolute;
+  top: calc((var(--flow-node) - var(--flow-rail)) / 2);
+  left: calc(var(--flow-node) + 0.5rem);
+  right: calc(-1 * clamp(1.5rem, 3vw, 3rem) + 0.5rem);
+  height: var(--flow-rail);
+  background: var(--atif-emerald);
+  transform: skewX(var(--atif-chamfer));
+  transform-origin: left center;
+}
+
+.atif-flow__step:last-child::after {
+  right: 0.25rem;
+  background: linear-gradient(to right, var(--atif-emerald) 55%, color-mix(in oklch, var(--atif-emerald) 0%, transparent));
+}
+
+.atif-flow__tag {
+  margin: 0;
+  font-family: var(--sl-font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.02em;
+  color: var(--sl-color-text-accent);
+}
+
+.atif-flow__tag code {
+  padding: 0 !important;
+  background: none !important;
+  color: inherit !important;
+  font-size: inherit !important;
+}
+
+.atif-flow__step h3 {
+  margin: 0.45rem 0 0;
+  font-size: 1.35rem;
+  font-weight: 640;
+  letter-spacing: -0.02em;
+  color: var(--sl-color-white);
+}
+
+.atif-flow__step p:not(.atif-flow__tag) {
+  margin: 0.6rem 0 0;
+  max-width: 24rem;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--sl-color-gray-2);
+  text-wrap: pretty;
+}
+
+/* What you get: four payoffs, each with a small diagram, ruled like a ledger */
+.atif-features {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid var(--atif-border);
+}
+
+.atif-feature {
+  display: flex;
+  flex-direction: column;
+  padding: clamp(1.75rem, 3vw, 2.5rem) 0;
+  border-bottom: 1px solid var(--atif-border);
+}
+
+.atif-feature:nth-child(odd) {
+  padding-right: clamp(1.5rem, 3.5vw, 3.25rem);
+  border-right: 1px solid var(--atif-border);
+}
+
+.atif-feature:nth-child(even) {
+  padding-left: clamp(1.5rem, 3.5vw, 3.25rem);
+}
+
+.atif-feature:nth-last-child(-n + 2) {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.atif-feature h3 {
+  margin: 1.5rem 0 0;
+  font-size: 1.25rem;
+  font-weight: 640;
+  letter-spacing: -0.018em;
+  color: var(--sl-color-white);
+}
+
+.atif-feature p {
+  margin: 0.6rem 0 0;
+  max-width: 33rem;
+  font-size: 1rem;
+  line-height: 1.62;
+  color: var(--sl-color-gray-2);
+  text-wrap: pretty;
+}
+
+.atif-feature > a,
+.atif-arrowlink {
+  align-self: flex-start;
+  margin-top: 1rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--sl-color-text-accent);
+  text-decoration: none;
+}
+
+.atif-feature > a::after,
+.atif-arrowlink::after {
+  content: ' →';
+  display: inline-block;
+  white-space: pre;
+  transition: transform 180ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.atif-feature > a:hover::after,
+.atif-arrowlink:hover::after {
+  transform: translateX(3px);
+}
+
+/* One run, three views: restrained tabs with a chamfered emerald indicator */
+.atif-glimpse starlight-tabs {
+  margin-top: 0 !important;
+}
+
+.atif-glimpse starlight-tabs .tablist-wrapper {
+  overflow-x: auto;
+}
+
+.atif-glimpse starlight-tabs [role='tablist'] {
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--atif-border);
+  padding: 0;
+}
+
+.atif-glimpse starlight-tabs .tab {
+  margin-bottom: -1px;
+}
+
+.atif-glimpse starlight-tabs [role='tab'] {
+  position: relative;
+  padding: 0.7rem 1rem 0.8rem 0;
+  margin-right: 0.9rem;
+  border: 0;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--atif-text-muted);
+  text-decoration: none;
+  transition: color 140ms ease;
+}
+
+.atif-glimpse starlight-tabs [role='tab']:hover {
+  color: var(--sl-color-white);
+}
+
+.atif-glimpse starlight-tabs [role='tab'][aria-selected='true'] {
+  color: var(--sl-color-white);
+  font-weight: 600;
+}
+
+.atif-glimpse starlight-tabs [role='tab'][aria-selected='true']::after {
+  content: '';
+  position: absolute;
+  left: 0.1rem;
+  right: 1rem;
+  bottom: -1px;
+  height: 3px;
+  background: var(--atif-emerald);
+  transform: skewX(var(--atif-chamfer));
+}
+
+.atif-glimpse starlight-tabs [role='tabpanel'] {
+  margin-top: 1.35rem;
+}
+
+.atif-glimpse starlight-tabs [role='tabpanel'] > p {
+  margin: 0 0 1rem;
+  max-width: 46rem;
+  font-size: 1rem;
+  color: var(--sl-color-gray-2);
+}
+
+.atif-glimpse .expressive-code {
+  margin: 0 !important;
+}
+
+.atif-footnote {
+  margin: 1.25rem 0 0 !important;
+  max-width: none !important;
+  font-size: 0.875rem;
+  color: var(--atif-text-muted);
+}
+
+.atif-footnote a {
+  color: var(--sl-color-gray-2);
+  text-decoration: underline;
+  text-decoration-color: var(--atif-border-strong);
+  text-underline-offset: 0.22em;
+}
+
+.atif-footnote a:hover {
+  color: var(--sl-color-white);
+  text-decoration-color: var(--atif-emerald);
+}
+
+/* Start here: four doors, each lit by a chamfered rail segment on approach */
+.atif-paths {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-top: 1px solid var(--atif-border-strong);
+}
+
+.atif-path {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 1.6rem clamp(1rem, 2vw, 1.75rem) 1.75rem;
+  border-right: 1px solid var(--atif-border);
+  transition: background-color 180ms ease;
+}
+
+.atif-path:first-child {
+  padding-left: 0;
+}
+
+.atif-path:last-child {
+  border-right: none;
+  padding-right: 0;
+}
+
+.atif-path::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 0;
+  width: calc(100% - 0.75rem);
+  height: 3px;
+  background: var(--atif-emerald);
+  transform: skewX(var(--atif-chamfer)) scaleX(0);
+  transform-origin: left center;
+  transition: transform 320ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.atif-path:hover::before,
+.atif-path:focus-within::before {
+  transform: skewX(var(--atif-chamfer)) scaleX(1);
+}
+
+.atif-path__where {
+  margin: 0;
+  font-family: var(--sl-font-mono);
+  font-size: 0.75rem;
+  color: var(--atif-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.atif-path__where code {
+  padding: 0 !important;
+  background: none !important;
+  color: inherit !important;
+  font-size: inherit !important;
+}
+
+.atif-path h3 {
+  margin: 0.85rem 0 0;
+  font-size: 1.1875rem;
+  font-weight: 640;
+  letter-spacing: -0.018em;
+  line-height: 1.25;
+}
+
+.atif-path h3 a {
+  color: var(--sl-color-white);
+  text-decoration: none;
+}
+
+/* Stretch the link over the whole door so the full cell is the target */
+.atif-path h3 a::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+.atif-path h3 a::after {
+  content: '→';
+  display: inline-block;
+  margin-left: 0.4rem;
+  color: var(--atif-emerald);
+  font-weight: 500;
+  transition: transform 180ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.atif-path:hover h3 a::after {
+  transform: translateX(3px);
+}
+
+.atif-path h3 a:focus-visible {
+  outline: none;
+}
+
+.atif-path:has(a:focus-visible) {
+  outline: 2px solid var(--atif-emerald);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.atif-path p:not(.atif-path__where) {
+  margin: 0.55rem 0 0;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: var(--sl-color-gray-2);
+  text-wrap: pretty;
+}
+
+/* Machine-readable endpoints table sits flush in the page rhythm */
+.atif-endpoints .atif-table-wrap,
+.atif-endpoints table {
+  margin-top: 0 !important;
+}
+
+@media (min-width: 64rem) {
+  .atif-endpoints td:nth-child(-n + 2) {
+    white-space: nowrap;
+  }
+}
+
+/* Scroll reveal: only when motion is welcome and the script has taken over */
+@media (prefers-reduced-motion: no-preference) {
+  .atif-js [data-reveal] {
+    opacity: 0;
+    transform: translateY(14px);
+    transition: opacity 700ms cubic-bezier(0.2, 0.7, 0.2, 1), transform 700ms cubic-bezier(0.2, 0.7, 0.2, 1);
+    transition-delay: calc(var(--reveal-i, 0) * 90ms);
+  }
+
+  .atif-js [data-reveal].is-in {
+    opacity: 1;
+    transform: none;
+  }
+
+  .atif-js .atif-flow[data-reveal] {
+    opacity: 1;
+    transform: none;
+  }
+
+  .atif-js .atif-flow[data-reveal] .atif-flow__step > * {
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 600ms ease, transform 600ms cubic-bezier(0.2, 0.7, 0.2, 1);
+    transition-delay: calc(var(--flow-i, 0) * 260ms + 180ms);
+  }
+
+  .atif-js .atif-flow[data-reveal] .atif-flow__step::before {
+    transform: scale(0);
+    transition: transform 420ms cubic-bezier(0.3, 1.4, 0.5, 1);
+    transition-delay: calc(var(--flow-i, 0) * 260ms);
+  }
+
+  .atif-js .atif-flow[data-reveal] .atif-flow__step::after {
+    transform: skewX(var(--atif-chamfer)) scaleX(0);
+    transition: transform 520ms cubic-bezier(0.4, 0, 0.2, 1);
+    transition-delay: calc(var(--flow-i, 0) * 260ms + 120ms);
+  }
+
+  .atif-js .atif-flow[data-reveal].is-in .atif-flow__step > * {
+    opacity: 1;
+    transform: none;
+  }
+
+  .atif-js .atif-flow[data-reveal].is-in .atif-flow__step::before {
+    transform: none;
+  }
+
+  .atif-js .atif-flow[data-reveal].is-in .atif-flow__step::after {
+    transform: skewX(var(--atif-chamfer)) scaleX(1);
+  }
+}
+
+.atif-flow__step:nth-child(2) {
+  --flow-i: 1;
+}
+
+.atif-flow__step:nth-child(3) {
+  --flow-i: 2;
+}
+
+@media (max-width: 68rem) {
+  .atif-hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2.75rem;
+  }
+
+  .atif-hero__headline {
+    max-width: 16ch;
+  }
+
+  .atif-paths {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .atif-path:nth-child(2) {
+    border-right: none;
+    padding-right: 0;
+  }
+
+  .atif-path:nth-child(3) {
+    padding-left: 0;
+  }
+
+  .atif-path:nth-child(n + 3) {
+    border-top: 1px solid var(--atif-border);
+  }
+}
+
+@media (max-width: 52rem) {
+  .atif-why {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .atif-audiences {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.75rem;
+  }
+
+  .atif-flow {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 0;
+  }
+
+  /* Rail turns vertical on narrow screens: nodes down the left edge */
+  .atif-flow__step {
+    padding: 0 0 2rem calc(var(--flow-node) + 1.1rem);
+  }
+
+  .atif-flow__step:last-child {
+    padding-bottom: 0;
+  }
+
+  .atif-flow__step::after,
+  .atif-flow__step:last-child::after {
+    top: calc(var(--flow-node) + 0.4rem);
+    bottom: 0.4rem;
+    left: calc((var(--flow-node) - var(--flow-rail)) / 2);
+    right: auto;
+    width: var(--flow-rail);
+    height: auto;
+    transform: none !important;
+    background: var(--atif-emerald);
+  }
+
+  .atif-flow__step:last-child::after {
+    display: none;
+  }
+
+  .atif-features {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .atif-feature,
+  .atif-feature:nth-child(odd),
+  .atif-feature:nth-child(even) {
+    padding: 2rem 0;
+    border-right: none;
+    border-bottom: 1px solid var(--atif-border);
+  }
+
+  .atif-feature:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+}
+
+@media (max-width: 36rem) {
+  .atif-paths {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .atif-path,
+  .atif-path:nth-child(n) {
+    padding: 1.35rem 0 1.5rem;
+    border-right: none;
+  }
+
+  .atif-path:nth-child(n + 2) {
+    border-top: 1px solid var(--atif-border);
+  }
+
+  .atif-btn {
+    flex: 1 1 auto;
+  }
+
+  .atif-textlink {
+    margin-inline-start: 0;
+    flex-basis: 100%;
+    margin-top: 0.35rem;
+  }
+}
+
+/* ==========================================================================
+   Validator Workspace (/validator/) — Operate Mode
+   ========================================================================== */
+
+main:has(.atif-validator-page) .sl-container {
+  max-width: 82rem;
+}
+
+main:has(.atif-validator-page) .content-panel:first-of-type {
+  padding-top: 1.75rem;
+  padding-bottom: 0.5rem;
+}
+
+main:has(.atif-validator-page) .content-panel:first-of-type h1 {
+  font-size: clamp(1.65rem, 2.5vw, 2.1rem);
+  margin: 0;
+}
+
+main:has(.atif-validator-page) .content-panel + .content-panel {
+  border-top: none;
+  padding-top: 0;
+}
+
+.atif-validator-intro {
+  margin: 0 0 1.25rem 0 !important;
+  max-width: 72ch !important;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: var(--sl-color-gray-2);
+}
+
+.atif-validator-intro a {
+  color: var(--sl-color-text-accent);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}

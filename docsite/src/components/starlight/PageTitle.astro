@@ -1,0 +1,163 @@
+---
+import PageAgentActions from '../PageAgentActions.astro';
+import VersionSwitcher from '../VersionSwitcher.astro';
+import { discoverSpecVersions, getLatestSpecVersion, getSpecVersion } from '../../lib/spec-loader';
+
+const { entry } = Astro.locals.starlightRoute;
+const isSplash = entry.data.template === 'splash';
+const pathname = Astro.url.pathname;
+const isHome = pathname === '/' || pathname === '';
+
+const versionMatch = pathname.match(/^\/spec\/(v\d+\.\d+)(?:\/(changelog|references))?(?:\/|$)/);
+const currentVersion = versionMatch ? getSpecVersion(versionMatch[1]) : undefined;
+const allVersions = currentVersion ? discoverSpecVersions() : [];
+const subSection = versionMatch?.[2];
+const isVersionChangelog = subSection === 'changelog';
+
+// Quiet breadcrumb context: where this page lives, never a second headline.
+let section: { label: string; href: string } | undefined;
+let leaf: string | undefined;
+
+if (currentVersion) {
+  section = { label: 'Specification', href: currentVersion.href };
+  leaf = isVersionChangelog ? 'Changelog' : subSection === 'references' ? 'Reference' : undefined;
+} else if (pathname.startsWith('/spec/changelog')) {
+  section = { label: 'Specification', href: getLatestSpecVersion()?.href ?? '/spec/v2.0/' };
+  leaf = 'Version history';
+} else if (pathname.startsWith('/guides/')) {
+  section = { label: 'Guides', href: '/guides/quickstart/' };
+}
+---
+
+{isHome ? (
+  <h1 id="_top" class="atif-home-title">
+    <svg class="atif-home-title__mark" width="40" height="12" viewBox="0 0 40 12" fill="none" aria-hidden="true">
+      <circle cx="6" cy="6" r="4.25" stroke="currentColor" stroke-width="3" />
+      <path d="M17 3H40L37 9H14L17 3Z" fill="currentColor" />
+    </svg>
+    <span>{entry.data.title}</span>
+  </h1>
+) : (
+  <div class="atif-page-header">
+    {!isSplash && (
+      <div class="atif-page-meta" data-pagefind-ignore>
+        <nav class="atif-crumbs" aria-label="Breadcrumb">
+          {section && (
+            <a class:list={['atif-crumbs__link', { 'atif-crumbs__link--root': Boolean(currentVersion) }]} href={section.href}>
+              {section.label}
+            </a>
+          )}
+          {currentVersion && (
+            <>
+              <span class="atif-crumbs__sep atif-crumbs__sep--root" aria-hidden="true">/</span>
+              <VersionSwitcher
+                versions={allVersions}
+                currentVersion={currentVersion}
+                subPath={isVersionChangelog ? 'changelog' : 'spec'}
+              />
+            </>
+          )}
+          {leaf && (
+            <>
+              <span class="atif-crumbs__sep" aria-hidden="true">/</span>
+              <span class="atif-crumbs__leaf">{leaf}</span>
+            </>
+          )}
+        </nav>
+        <PageAgentActions pathname={pathname} specVersionDir={currentVersion?.dirName} />
+      </div>
+    )}
+    <h1 id="_top">{entry.data.title}</h1>
+  </div>
+)}
+
+<style>
+  .atif-page-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+  }
+
+  /* Metadata strip: breadcrumb + version on the left, one action control on the right */
+  .atif-page-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    min-height: 1.875rem;
+  }
+
+  .atif-crumbs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.15rem 0.45rem;
+    min-width: 0;
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    color: var(--atif-text-muted);
+  }
+
+  .atif-crumbs__link {
+    color: var(--atif-text-muted);
+    font-weight: 500;
+    text-decoration: none;
+    transition: color 120ms ease;
+  }
+
+  .atif-crumbs__link:hover {
+    color: var(--sl-color-white);
+  }
+
+  .atif-crumbs__sep {
+    color: var(--atif-border-strong);
+    user-select: none;
+  }
+
+  .atif-crumbs__leaf {
+    color: var(--sl-color-gray-2);
+    font-weight: 500;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(1.9rem, 3vw, 2.45rem);
+    line-height: 1.14;
+    font-weight: 650;
+    letter-spacing: -0.03em;
+    color: var(--sl-color-white);
+    text-wrap: balance;
+  }
+
+  /* Phones: the version already says where you are, so drop the section prefix */
+  @media (max-width: 30rem) {
+    .atif-crumbs__link--root,
+    .atif-crumbs__sep--root {
+      display: none;
+    }
+
+    .atif-crumbs {
+      flex-wrap: nowrap;
+      white-space: nowrap;
+    }
+  }
+
+  /* Landing page: the format's full name is the page's <h1>, set as a quiet eyebrow */
+  .atif-home-title {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--atif-text-muted);
+  }
+
+  .atif-home-title__mark {
+    flex-shrink: 0;
+    color: var(--atif-emerald);
+  }
+</style>

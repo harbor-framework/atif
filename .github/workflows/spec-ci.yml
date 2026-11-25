@@ -1,0 +1,74 @@
+name: Spec, Schema, & Conformance CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "spec/**"
+      - "conformance/**"
+      - "scripts/**"
+      - ".github/workflows/spec-ci.yml"
+  pull_request:
+    paths:
+      - "spec/**"
+      - "conformance/**"
+      - "scripts/**"
+      - ".github/workflows/spec-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spec-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  protobuf:
+    name: Protobuf Lint & Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Buf
+        uses: bufbuild/buf-setup-action@v1
+
+      - name: Lint and build spec/v2.0/schema
+        working-directory: spec/v2.0/schema
+        run: |
+          buf lint
+          buf build
+
+  spec-and-conformance:
+    name: Frontmatter, JSON Schema, & Conformance
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: scripts/package-lock.json
+
+      - name: Install validator dependencies and validate spec
+        working-directory: scripts
+        run: |
+          npm ci
+          node validate-spec.mjs
+
+  warehouse-sql:
+    name: Warehouse SQL DDL Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Validate BigQuery warehouse SQL DDL
+        run: uv run --with sqlglot python3 scripts/validate-sql.py spec/v2.0/schema/warehouse.sql

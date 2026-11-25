@@ -1,0 +1,285 @@
+---
+/**
+ * Small explanatory diagrams for the landing page's "what you get" ledger.
+ * Drawn from the logomark's parts: chamfered segments (26.565°), hollow nodes,
+ * emerald rails. Decorative: the heading and paragraph beside each one say the
+ * same thing in words. Travelling dots only run when motion is welcome.
+ */
+interface Props {
+  kind: 'canonical' | 'multimodal' | 'lineage' | 'warehouse';
+}
+
+const { kind } = Astro.props;
+
+/** Chamfered segment whose slanted ends match the logomark (offset = height / 2). */
+function seg(x: number, cy: number, w: number, h = 22): string {
+  const c = h / 2;
+  return `M${x + c} ${cy - c}H${x + w}L${x + w - c} ${cy + c}H${x}Z`;
+}
+
+const canonicalRails = [
+  'M62.5 20H150C185 20 180 56 205 56',
+  'M110.5 56H205',
+  'M136.5 92H160C190 92 182 56 205 56',
+];
+
+const stepParts = [
+  { label: 'reasoning', x: 4, w: 92 },
+  { label: 'text', x: 102, w: 58 },
+  { label: 'image', x: 166, w: 66 },
+  { label: 'action', x: 238, w: 110, accent: true },
+];
+
+const trunk = 'M14 62H346';
+const subagentBranch = 'M96 62L137.8 30.8Q144.2 26 152.2 26H232';
+const rewindBranch = 'M178 62L219.8 93.2Q226.2 98 234.2 98H262';
+
+const fanRails = ['M84 56C100 56 96 20 117.5 20', 'M84 56H117.5', 'M84 56C100 56 96 92 117.5 92'];
+const tables = [
+  { label: 'sessions', x: 112, cy: 20, w: 82 },
+  { label: 'trajectories', x: 200, cy: 20, w: 108 },
+  { label: 'steps', x: 112, cy: 56, w: 64 },
+  { label: 'actions', x: 182, cy: 56, w: 76 },
+  { label: 'blobs', x: 264, cy: 56, w: 62 },
+  { label: 'extension_records', x: 112, cy: 92, w: 138 },
+];
+---
+
+<svg class="fg" viewBox="0 0 360 112" role="presentation" aria-hidden="true" focusable="false" data-kind={kind}>
+  {kind === 'canonical' && (
+    <>
+      {canonicalRails.map((d) => <path class="fg-line" d={d} />)}
+      <path class="fg-chip" d={seg(4, 20, 64)} />
+      <text class="fg-text" x="21" y="23.6">Bash</text>
+      <path class="fg-chip" d={seg(4, 56, 112)} />
+      <text class="fg-text" x="21" y="59.6">exec_command</text>
+      <path class="fg-chip" d={seg(4, 92, 138)} />
+      <text class="fg-text" x="21" y="95.6">run_terminal_cmd</text>
+      {canonicalRails.map((d, i) => (
+        <circle class="fg-dot" r="2.8" style={`offset-path:path('${d}');animation-delay:${i * 0.55}s`} />
+      ))}
+      <path class="fg-rail" d="M222 56H240" />
+      <circle class="fg-node" cx="214" cy="56" r="8" />
+      <path class="fg-chip fg-chip--emerald" d={seg(236, 56, 120, 26)} />
+      <text class="fg-text fg-text--on-emerald" x="255" y="60">shell_command</text>
+    </>
+  )}
+
+  {kind === 'multimodal' && (
+    <>
+      <text class="fg-text fg-text--muted" x="4" y="14">step 2 · agent</text>
+      {stepParts.map((part, i) => (
+        <g class="fg-part" style={`--i:${i}`}>
+          <path class:list={['fg-chip', part.accent ? 'fg-chip--emerald' : 'fg-chip--carbon']} d={seg(part.x, 42, part.w, 24)} />
+          <text
+            class:list={['fg-text', part.accent ? 'fg-text--on-emerald' : 'fg-text--on-carbon']}
+            x={part.x + part.w / 2}
+            y="45.6"
+            text-anchor="middle"
+          >
+            {part.label}
+          </text>
+        </g>
+      ))}
+      <path class="fg-rail fg-rail--thin" d="M290 55V78" />
+      <circle class="fg-node fg-node--small" cx="290" cy="85" r="6" />
+      <text class="fg-text fg-text--muted" x="276" y="88.6" text-anchor="end">arguments · output · timing · approval</text>
+    </>
+  )}
+
+  {kind === 'lineage' && (
+    <>
+      <path class="fg-line fg-line--dashed" d={rewindBranch} />
+      <path class="fg-rail fg-rail--thin" d={subagentBranch} />
+      <path class="fg-rail" d={trunk} />
+      <circle class="fg-halo" r="9" style={`offset-path:path('${trunk}')`} />
+      <circle class="fg-halo fg-halo--late" r="7" style={`offset-path:path('${subagentBranch}')`} />
+      <circle class="fg-node" cx="14" cy="62" r="7" />
+      <circle class="fg-node fg-node--small" cx="96" cy="62" r="6" />
+      <circle class="fg-node fg-node--small" cx="178" cy="62" r="6" />
+      <circle class="fg-node fg-node--small" cx="260" cy="62" r="6" />
+      <circle class="fg-node" cx="346" cy="62" r="7" />
+      <circle class="fg-node fg-node--tiny" cx="180" cy="26" r="4.5" />
+      <circle class="fg-node fg-node--tiny" cx="240" cy="26" r="5.5" />
+      <circle class="fg-node fg-node--slate" cx="270" cy="98" r="5.5" />
+      <text class="fg-text fg-text--muted" x="252" y="29.6">subagent</text>
+      <text class="fg-text fg-text--muted" x="282" y="101.6">rewind · kept</text>
+    </>
+  )}
+
+  {kind === 'warehouse' && (
+    <>
+      {fanRails.map((d) => <path class="fg-line" d={d} />)}
+      <path class="fg-rail fg-rail--thin" d="M21 56H84" />
+      {fanRails.map((d, i) => (
+        <circle class="fg-dot" r="2.8" style={`offset-path:path('${d}');animation-delay:${i * 0.5}s`} />
+      ))}
+      <circle class="fg-node" cx="14" cy="56" r="7" />
+      <circle class="fg-joint" cx="84" cy="56" r="3.2" />
+      <text class="fg-text fg-text--muted" x="4" y="84">.atif.jsonl</text>
+      {tables.map((t) => (
+        <>
+          <path class="fg-chip" d={seg(t.x, t.cy, t.w)} />
+          <text class="fg-text" x={t.x + 17} y={t.cy + 3.6}>{t.label}</text>
+        </>
+      ))}
+    </>
+  )}
+</svg>
+
+<style>
+  .fg {
+    --fg-line: color-mix(in oklab, var(--atif-ink) 28%, var(--atif-ground));
+    display: block;
+    width: 100%;
+    max-width: 27rem;
+    height: auto;
+    overflow: visible;
+  }
+
+  .fg-text {
+    font-family: var(--sl-font-mono);
+    font-size: 10.5px;
+    fill: var(--sl-color-white);
+  }
+
+  .fg-text--muted {
+    font-size: 10px;
+    fill: var(--atif-text-muted);
+  }
+
+  .fg-text--on-carbon {
+    fill: var(--atif-ground);
+  }
+
+  .fg-text--on-emerald {
+    font-weight: 600;
+    fill: var(--atif-on-emerald);
+  }
+
+  .fg-chip {
+    fill: color-mix(in oklab, var(--atif-ink) 8%, var(--atif-ground));
+  }
+
+  .fg-chip--carbon {
+    fill: color-mix(in oklab, var(--atif-ink) 86%, var(--atif-ground));
+  }
+
+  .fg-chip--emerald {
+    fill: var(--atif-emerald-strong);
+  }
+
+  .fg-line {
+    fill: none;
+    stroke: var(--fg-line);
+    stroke-width: 1.4;
+  }
+
+  .fg-line--dashed {
+    stroke-width: 2.5;
+    stroke-dasharray: 5 4;
+  }
+
+  .fg-rail {
+    fill: none;
+    stroke: var(--atif-emerald);
+    stroke-width: 5;
+    stroke-linejoin: round;
+  }
+
+  .fg-rail--thin {
+    stroke-width: 3;
+  }
+
+  .fg-node {
+    fill: var(--atif-ground);
+    stroke: var(--atif-emerald);
+    stroke-width: 4.5;
+  }
+
+  .fg-node--small {
+    stroke-width: 4;
+  }
+
+  .fg-node--tiny {
+    stroke-width: 3;
+  }
+
+  .fg-node--slate {
+    stroke: var(--fg-line);
+    stroke-width: 3;
+  }
+
+  .fg-joint {
+    fill: var(--atif-emerald);
+  }
+
+  .fg-dot,
+  .fg-halo {
+    fill: var(--atif-emerald);
+    opacity: 0;
+    offset-rotate: 0deg;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .fg-dot {
+      animation: fg-run 3.3s cubic-bezier(0.45, 0, 0.3, 1) infinite;
+    }
+
+    .fg-halo {
+      animation: fg-glide 5.2s cubic-bezier(0.45, 0, 0.3, 1) infinite;
+    }
+
+    .fg-halo--late {
+      animation-delay: 1.1s;
+    }
+
+    .fg-part {
+      animation: fg-read 5.6s ease-in-out infinite;
+      animation-delay: calc(var(--i) * 0.55s);
+    }
+
+    @keyframes fg-run {
+      0% {
+        offset-distance: 0%;
+        opacity: 0;
+      }
+      12%,
+      55% {
+        opacity: 1;
+      }
+      68%,
+      100% {
+        offset-distance: 100%;
+        opacity: 0;
+      }
+    }
+
+    @keyframes fg-glide {
+      0% {
+        offset-distance: 0%;
+        opacity: 0;
+      }
+      10%,
+      58% {
+        opacity: 0.26;
+      }
+      70%,
+      100% {
+        offset-distance: 100%;
+        opacity: 0;
+      }
+    }
+
+    @keyframes fg-read {
+      0%,
+      22%,
+      100% {
+        opacity: 1;
+      }
+      9% {
+        opacity: 0.62;
+      }
+    }
+  }
+</style>

@@ -1,0 +1,240 @@
+---
+title: ATIF - Agent Trajectory Interchange Format
+description: ATIF is an open, harness-agnostic, format for recording AI agent activity from prompts to tool calls and subagents.
+template: splash
+tableOfContents: false
+editUrl: false
+prev: false
+next: false
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+import TrajectoryHero from '../../components/home/TrajectoryHero.astro';
+import FeatureGlyph from '../../components/home/FeatureGlyph.astro';
+
+<div class="atif-home">
+  <section class="atif-hero not-content">
+    <div class="atif-hero__copy">
+      <p class="atif-hero__headline">One format for any agent run</p>
+      <p class="atif-hero__lede">ATIF is an open file format that captures agent trajectories in a predictable shape so you can debug it, analyze it, score it, and train on it without writing another parser.</p>
+      <div class="atif-cta-row">
+        <a href="/spec/v2.0/" class="atif-btn atif-btn--primary">Read the v2.0 spec</a>
+        <a href="/validator/" class="atif-btn atif-btn--secondary">Try the validator</a>
+        <a href="/guides/quickstart/" class="atif-textlink">Quickstart</a>
+      </div>
+    </div>
+    <TrajectoryHero />
+  </section>
+
+  <section class="atif-section not-content">
+    <div class="atif-why" data-reveal>
+      <h2>Why a shared format?</h2>
+      <div class="atif-why__prose">
+        <p>ATIF's rich semantics provide a common foundation for an ecosystem of tools across observability, analysis, evaluation, training, and more. A shared format allows tools to focus on value-added capabilities instead of re-implementing per harness parsers again and again.</p>
+      </div>
+    </div>
+    <div class="atif-audiences">
+      <div class="atif-audience" data-reveal>
+        <h3>If you build agents</h3>
+        <p>ATIF's append-only streaming format makes compatibility a straightforward translation of the native events already flowing through your custom agent harness.</p>
+      </div>
+      <div class="atif-audience" data-reveal style="--reveal-i:1">
+        <h3>If you run evals or RL</h3>
+        <p>Compare runs across frameworks and models on equal footing: the same steps, the same action names, the same token and cost fields.</p>
+      </div>
+      <div class="atif-audience" data-reveal style="--reveal-i:2">
+        <h3>If you debug trajectories</h3>
+        <p>See what actually happened including the retries, rewinds, and subagents that most logs quietly throw away.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="atif-section not-content">
+    <div class="atif-section__head" data-reveal>
+      <h2>From live stream to rich record</h2>
+      <p>ATIF has a stream-friendly event format optimized for live activity that consolidates into an analysis-friendly format easy for humans or agents to understand.</p>
+    </div>
+    <div class="atif-flow" data-reveal>
+      <div class="atif-flow__step">
+        <p class="atif-flow__tag"><code>.atif-e.jsonl</code></p>
+        <h3>Stream agent activity</h3>
+        <p>Your harness appends one small JSON line per event: a prompt arrives, the model replies, a tool returns. ATIF's durable append-only format survives crashes and restarts.</p>
+      </div>
+      <div class="atif-flow__step">
+        <p class="atif-flow__tag"><code>events → trajectories</code></p>
+        <h3>Consolidate into trajectories</h3>
+        <p>A deterministic pass folds the event stream into numbered steps, collating tool calls with their results and linking together trees of subagents.</p>
+      </div>
+      <div class="atif-flow__step">
+        <p class="atif-flow__tag"><code>.atif.jsonl</code></p>
+        <h3>Query and analyze</h3>
+        <p>The result reads easily from programmatic tools and maps one-to-one onto Protobuf and analytical SQL tables. ATIF's rich semantics enable aggregate analysis across harnesses.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="atif-section not-content">
+    <div class="atif-section__head" data-reveal>
+      <h2>What you get out of it</h2>
+      <p>Four things that are tedious to build yourself, and that every team working with agents ends up needing.</p>
+    </div>
+    <div class="atif-features">
+      <div class="atif-feature" data-reveal>
+        <FeatureGlyph kind="canonical" />
+        <h3>One name for the same action</h3>
+        <p>Claude Code calls it <code>Bash</code>. Codex calls it <code>exec_command</code>. Cursor calls it <code>run_terminal_cmd</code>. ATIF keeps the original call and adds a typed <code>shell_command</code> overlay — one of 28 canonical action kinds — so a single query covers every harness.</p>
+        <a href="/spec/v2.0/references/canonical-actions/">Canonical actions catalog</a>
+      </div>
+      <div class="atif-feature" data-reveal style="--reveal-i:1">
+        <FeatureGlyph kind="multimodal" />
+        <h3>Steps that keep everything in order</h3>
+        <p>A step holds reasoning, text, images, audio, and tool calls in the order they happened, with each action's arguments, output, timing, and approval right beside it. Oversized outputs keep a readable preview and a pointer to the full blob.</p>
+        <a href="/spec/v2.0/#step">Steps and multimodal content</a>
+      </div>
+      <div class="atif-feature" data-reveal>
+        <FeatureGlyph kind="lineage" />
+        <h3>Nothing gets thrown away</h3>
+        <p>Retries, rewinds, forks, best-of-N candidates, and subagents are stored as sibling trajectories that point back to where they branched. Replay the path the agent kept — or study the ones it abandoned.</p>
+        <a href="/spec/v2.0/#branching-modes">Lineage and branching</a>
+      </div>
+      <div class="atif-feature" data-reveal style="--reveal-i:1">
+        <FeatureGlyph kind="warehouse" />
+        <h3>Ask questions in SQL</h3>
+        <p>Schemas ship as JSON Schema, Protobuf, and warehouse DDL that stay in lockstep. Load runs into BigQuery or DuckDB and ask which model fails the most shell commands, without touching raw JSON.</p>
+        <a href="/spec/v2.0/references/projections/">Wire and warehouse projections</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="atif-section atif-glimpse">
+    <div class="atif-section__head not-content" data-reveal>
+      <h2>One moment, three views</h2>
+      <p>A user asks an agent to run the auth tests. Here is that single moment as it is streamed, as it is stored, and as it is queried.</p>
+    </div>
+
+<Tabs>
+<TabItem label="As it happens">
+
+While the agent works, the harness appends one line per event. These three share a `response_id`, which is how ATIF knows they belong to the same model turn.
+
+```jsonc title="session.atif-e.jsonl"
+// 18:00:02 — the model starts thinking
+{ "event_id": "ev-2", "response_id": "msg_01",
+  "step": { "source": "agent", "content": [{ "reasoning": { "text": "I'll run pytest on test_auth.py." } }] } }
+
+// 18:00:03 — and asks to run a command
+{ "event_id": "ev-3", "response_id": "msg_01",
+  "step": { "source": "agent", "actions": [{ "action_id": "toolu_01", "name": "Bash", "arguments": { "command": "pytest test_auth.py" } }] } }
+
+// 18:00:04 — the command finishes
+{ "event_id": "ev-4",
+  "action": { "action_id": "toolu_01", "output": [{ "text": "1 passed in 0.12s" }] } }
+```
+
+</TabItem>
+<TabItem label="Once it's stored">
+
+Consolidation folds those three events into one step. The tool result now sits inside the call that produced it, next to a canonical description any harness would recognise.
+
+```jsonc title="session.atif.jsonl"
+{
+  "type": "step",
+  "trajectory_id": "traj-1",
+  "step": {
+    "step_id": 2,
+    "source": "agent",
+    "event_ids": ["ev-2", "ev-3"],                // where this step came from
+    "content": [
+      { "type": "reasoning", "reasoning": { "text": "I'll run pytest on test_auth.py." } },
+      { "type": "text", "text": "Running pytest now." },
+      { "type": "action", "action_id": "toolu_01" }
+    ],
+    "actions": [
+      {
+        "action_id": "toolu_01",
+        "name": "Bash",                            // what the harness called it
+        "arguments": { "command": "pytest test_auth.py" },
+        "output": [{ "type": "text", "text": "1 passed in 0.12s" }],
+        "canonical": {                             // what it means everywhere
+          "type": "shell_command",
+          "shell_command": { "cwd": "/workspace", "command": "pytest test_auth.py", "exit_code": 0 }
+        }
+      }
+    ],
+    "metrics": { "input_tokens": 1200, "output_tokens": 45, "cache_read_tokens": 1000 }
+  }
+}
+```
+
+</TabItem>
+<TabItem label="When you query it">
+
+Load the same file into a warehouse and the canonical overlay becomes a column. This query works whether the run came from Claude Code, Codex, Cursor, or your own loop.
+
+```sql title="shell-failures.sql"
+-- Which agents fail the most shell commands?
+SELECT
+  t.agent.name                                        AS agent,
+  COUNT(*)                                            AS shell_commands,
+  COUNTIF(a.canonical.shell_command.exit_code != 0)   AS failed
+FROM actions AS a
+JOIN trajectories AS t USING (trajectory_id)
+WHERE a.canonical.type = 'shell_command'
+GROUP BY agent
+ORDER BY failed DESC;
+```
+
+</TabItem>
+</Tabs>
+
+    <p class="atif-footnote">Excerpts are trimmed for reading. See the full fixtures — <a href="/examples/v2.0/session.atif-e.jsonl">session.atif-e.jsonl</a> and <a href="/examples/v2.0/session.atif.jsonl">session.atif.jsonl</a> — or paste your own file into the <a href="/validator/">validator</a>.</p>
+  </section>
+
+  <section class="atif-section not-content">
+    <div class="atif-section__head" data-reveal>
+      <h2>Start here</h2>
+      <p>Pick the door that matches what you are doing today.</p>
+    </div>
+    <div class="atif-paths" data-reveal>
+      <div class="atif-path">
+        <p class="atif-path__where"><code>/spec/v2.0/</code></p>
+        <h3><a href="/spec/v2.0/">Read the specification</a></h3>
+        <p>The complete v2.0 standard: records, steps, actions, lineage, and the rules for consolidating events.</p>
+      </div>
+      <div class="atif-path">
+        <p class="atif-path__where"><code>/guides/quickstart/</code></p>
+        <h3><a href="/guides/quickstart/">Follow the quickstart</a></h3>
+        <p>Emit your first trajectory, stream live events, and read them back — in a few minutes.</p>
+      </div>
+      <div class="atif-path">
+        <p class="atif-path__where"><code>/validator/</code></p>
+        <h3><a href="/validator/">Validate a file</a></h3>
+        <p>Paste or upload a trajectory, check it against the schema, and explore its steps. It never leaves your browser.</p>
+      </div>
+      <div class="atif-path">
+        <p class="atif-path__where"><code>/.well-known/skills/atif/SKILL.md</code></p>
+        <h3><a href="/.well-known/skills/atif/SKILL.md">Give it to your agent</a></h3>
+        <p>A discoverable skill that teaches coding agents how to read, write, and validate ATIF.</p>
+      </div>
+    </div>
+    <p class="atif-footnote">Coming from v1.x? Read the <a href="/guides/migrating-from-v1/">migration guide</a> or browse the <a href="/spec/v1.8/">v1.8 specification</a>.</p>
+  </section>
+
+  <section class="atif-section atif-endpoints">
+    <div class="atif-section__head not-content" data-reveal>
+      <h2>Built for machines, too</h2>
+      <p>Every page on this site has a raw Markdown twin, and every schema is a stable URL — so agents and scripts can read the standard as easily as you can.</p>
+    </div>
+
+| Resource | Endpoint | Description |
+| :--- | :--- | :--- |
+| **Full v2.0 Spec (Markdown)** | [`/spec/v2.0/full.md`](/spec/v2.0/full.md) | Single-fetch Markdown bundle combining `SPEC.md` and all companion references. |
+| **Agent Skill (`draft-zzn-dvs-00`)** | [`/.well-known/skills/atif/SKILL.md`](/.well-known/skills/atif/SKILL.md) | Lightweight discovery pointer indexed at [`/.well-known/skills/index.json`](/.well-known/skills/index.json). |
+| **JSON Schema 2020-12** | [`/schema/v2.0/atif-record.schema.json`](/schema/v2.0/atif-record.schema.json) | Line-level `AtifRecord` envelope (with [`canonical-actions.schema.json`](/schema/v2.0/canonical-actions.schema.json) and [`common-defs.schema.json`](/schema/v2.0/common-defs.schema.json)). |
+| **Protocol Buffers** | [`/schema/v2.0/atif.proto`](/schema/v2.0/atif.proto) | Canonical `proto3` wire definition (`buf lint` and `buf build` verified). |
+| **Warehouse SQL DDL** | [`/schema/v2.0/warehouse.sql`](/schema/v2.0/warehouse.sql) | Normalized six-table BigQuery / DuckDB schema (`sessions`, `trajectories`, `steps`, `actions`, `extension_records`, `blobs`). |
+| **Reference Fixtures** | [`/examples/v2.0/session.atif-e.jsonl`](/examples/v2.0/session.atif-e.jsonl) | Streaming events fixture paired with consolidated [`/examples/v2.0/session.atif.jsonl`](/examples/v2.0/session.atif.jsonl). |
+| **LLM Index** | [`/llms.txt`](/llms.txt) | Compact plain-text directory of Markdown specs and machine-readable schemas. |
+
+  </section>
+</div>

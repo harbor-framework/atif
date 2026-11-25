@@ -1,0 +1,118 @@
+---
+import type { VersionInfo } from '../lib/spec-loader';
+
+interface Props {
+  version: VersionInfo;
+}
+
+const { version } = Astro.props;
+// Do NOT render a status note on Latest (v2.0) — the version switcher already says so.
+const shouldShow = version.role !== 'latest';
+---
+
+{shouldShow && (
+  <aside
+    class:list={['atif-status-banner', `atif-status-banner--${version.role}`]}
+    role="note"
+    data-spec-role={version.role}
+  >
+    <span class="atif-status-banner__node" aria-hidden="true"></span>
+
+    <div class="atif-status-banner__body">
+      {version.role === 'legacy' && (
+        <p>
+          <strong>Legacy</strong>
+          {version.dirName} is the final release of the v{version.major}.x line. New work should target{' '}
+          <a href={version.latestHref}>ATIF v{version.latestVersion}</a>; the{' '}
+          <a href="/guides/migrating-from-v1/">migration guide</a> covers the move.
+        </p>
+      )}
+      {version.role === 'archived' && (
+        <p>
+          <strong>Archived</strong>
+          {version.dirName} is a historical snapshot{version.releaseDate ? ` from ${version.releaseDate}` : ''}.
+          Read <a href={version.latestHref}>ATIF v{version.latestVersion}</a>
+          {version.latestInMajorVersion && version.latestInMajorHref && (
+            <>
+              {' '}or the final v{version.major}.x release,{' '}
+              <a href={version.latestInMajorHref}>v{version.latestInMajorVersion}</a>
+            </>
+          )}
+          {' '}instead.
+        </p>
+      )}
+      {version.role === 'draft' && (
+        <p>
+          <strong>Working draft</strong>
+          {version.dirName} may change before it is finalized. For production, use{' '}
+          <a href={version.latestHref}>ATIF v{version.latestVersion}</a>.
+        </p>
+      )}
+    </div>
+  </aside>
+)}
+
+<style>
+  /* A single calm line: hollow status node, label, and where to go instead */
+  .atif-status-banner {
+    --status: var(--atif-border-strong);
+    --status-ink: var(--sl-color-white);
+    display: flex;
+    align-items: baseline;
+    gap: 0.7rem;
+    margin: 0 0 1.75rem 0;
+    padding: 0.7rem 0.95rem;
+    border: 1px solid var(--atif-border);
+    border-radius: 0.5rem;
+    background: var(--atif-surface-subtle);
+    font-size: 0.875rem;
+    line-height: 1.55;
+    color: var(--sl-color-gray-2);
+  }
+
+  .atif-status-banner--legacy {
+    --status: var(--atif-amber-border);
+    --status-ink: var(--atif-amber-ink);
+  }
+
+  .atif-status-banner--draft {
+    --status: var(--atif-draft-border);
+    --status-ink: var(--atif-draft-ink);
+  }
+
+  .atif-status-banner__node {
+    flex-shrink: 0;
+    width: 0.625rem;
+    height: 0.625rem;
+    border: 2.5px solid var(--status);
+    border-radius: 50%;
+    box-sizing: border-box;
+    transform: translateY(0.02rem);
+  }
+
+  .atif-status-banner__body p {
+    margin: 0;
+    max-width: none;
+  }
+
+  .atif-status-banner strong {
+    margin-inline-end: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--status-ink);
+  }
+
+  .atif-status-banner a {
+    font-weight: 600;
+    color: var(--sl-color-white);
+    text-decoration: underline;
+    text-decoration-color: var(--atif-border-strong);
+    text-underline-offset: 0.22em;
+  }
+
+  .atif-status-banner a:hover {
+    text-decoration-color: var(--atif-emerald);
+  }
+</style>

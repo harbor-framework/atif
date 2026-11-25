@@ -1,0 +1,114 @@
+---
+import { getCollection, render } from 'astro:content';
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import { buildStarlightSidebar, discoverSpecVersions } from '../../lib/spec-loader';
+
+const specs = await getCollection('specs');
+const entry = specs.find((item) => item.id.toLowerCase() === 'changelog');
+
+if (!entry) {
+  throw new Error('Master spec/CHANGELOG.md was not found in the specs collection.');
+}
+
+const { Content, headings } = await render(entry);
+const versions = discoverSpecVersions();
+const tocHeadings = [
+  { depth: 2, slug: 'all-versions', text: 'All Specification Versions' },
+  ...headings.filter((h) => h.depth >= 2),
+];
+---
+
+<StarlightPage
+  frontmatter={{
+    title: entry.data.title,
+    description: entry.data.description,
+  }}
+  headings={tocHeadings}
+  sidebar={buildStarlightSidebar()}
+>
+  <h2 id="all-versions">All Specification Versions</h2>
+  <p>
+    Finalized specification directories under <code>spec/v*/</code> are immutable once released.
+    Version roles below are derived automatically from semantic version order and each release&apos;s
+    intrinsic <code>status</code>.
+  </p>
+
+  <div class="atif-table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Version</th>
+          <th>Role</th>
+          <th>Schema Version</th>
+          <th>Released</th>
+          <th>Links</th>
+        </tr>
+      </thead>
+      <tbody>
+        {versions.map((v) => (
+          <tr>
+            <td>
+              <a href={v.href}><strong>{v.dirName}</strong></a>
+            </td>
+            <td>
+              <span class:list={['atif-role-pill', `atif-role-pill--${v.role}`]}>
+                {v.roleLabel}
+              </span>
+            </td>
+            <td><code>{v.schemaVersion ?? `ATIF-${v.dirName}`}</code></td>
+            <td class="atif-tabular">{v.releaseDate || '—'}</td>
+            <td>
+              <a href={v.href}>Spec</a>
+              {v.changelogHref && (
+                <>
+                  {' · '}
+                  <a href={v.changelogHref}>Changelog</a>
+                </>
+              )}
+              {' · '}
+              <a href={v.mdHref}>.md</a>
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+
+  <Content />
+</StarlightPage>
+
+<style>
+  .atif-role-pill {
+    display: inline-block;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    padding: 0.1rem 0.45rem;
+    border-radius: 0.25rem;
+    border: 1px solid var(--atif-border);
+    line-height: 1.35;
+  }
+
+  .atif-role-pill--latest {
+    background: var(--atif-accent-tint);
+    border-color: var(--atif-accent-border);
+    color: var(--atif-accent-tint-ink);
+  }
+
+  .atif-role-pill--legacy {
+    background: var(--atif-amber-bg);
+    border-color: var(--atif-amber-border);
+    color: var(--atif-amber-ink);
+  }
+
+  .atif-role-pill--archived {
+    background: var(--atif-archive-bg);
+    border-color: var(--atif-archive-border);
+    color: var(--atif-archive-ink);
+  }
+
+  .atif-role-pill--draft {
+    background: var(--atif-draft-bg);
+    border-color: var(--atif-draft-border);
+    color: var(--atif-draft-ink);
+  }
+</style>

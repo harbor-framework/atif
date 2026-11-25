@@ -1,0 +1,1635 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atif.dev/schema/v2.0/canonical-actions.schema.json",
+  "title": "ATIF v2.0 Canonical Actions Schema",
+  "description": "JSON Schema 2020-12 for Action.canonical (CanonicalAction), covering all 28 canonical action types and orthogonal MCP provenance.",
+  "$comment": "The root schema validates any CanonicalAction (strict variant required fields, optional type discriminator). Use #/$defs/CanonicalActionStrict for consolidated trajectories documents (requires type) and #/$defs/CanonicalActionPartial for streaming events output updates (allows partial member patches such as { shell_command: { exit_code: 0 } }).",
+  "$ref": "#/$defs/CanonicalAction",
+  "$defs": {
+    "CanonicalActionType": {
+      "type": "string",
+      "enum": [
+        "multi",
+        "subagent",
+        "message_send",
+        "message_read",
+        "elicitation",
+        "timer",
+        "synthetic_context",
+        "task_status",
+        "task_list",
+        "task_stop",
+        "shell_command",
+        "shell_send_input",
+        "script_exec",
+        "file_read",
+        "file_write",
+        "file_search",
+        "file_list",
+        "file_move",
+        "file_delete",
+        "search",
+        "web_fetch",
+        "skill_activate",
+        "skill_reference",
+        "skill_script",
+        "generate_media",
+        "mcp_tool",
+        "extension",
+        "resource_discovery"
+      ]
+    },
+    "CanonicalMcpProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "server_name",
+        "tool_name"
+      ],
+      "properties": {
+        "server_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "server_identifier": {
+          "$ref": "common-defs.schema.json#/$defs/ArdUrn"
+        },
+        "tool_name": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "MessageParticipant": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "trajectory_id": {
+          "type": "string"
+        },
+        "identifier": {
+          "$ref": "common-defs.schema.json#/$defs/ArdUrn"
+        }
+      }
+    },
+    "CanonicalMultiAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "actions"
+      ],
+      "properties": {
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CanonicalAction"
+          }
+        }
+      }
+    },
+    "CanonicalMultiActionStrict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "actions"
+      ],
+      "properties": {
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CanonicalActionStrict"
+          }
+        }
+      }
+    },
+    "CanonicalMultiActionPartial": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CanonicalActionPartial"
+          }
+        }
+      }
+    },
+    "CanonicalSubagent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "trajectory_id": {
+          "type": "string"
+        },
+        "uri": {
+          "type": "string"
+        },
+        "agent_name": {
+          "type": "string"
+        },
+        "agent_identifier": {
+          "$ref": "common-defs.schema.json#/$defs/ArdUrn"
+        },
+        "prompt": {
+          "type": "string"
+        },
+        "usage": {
+          "$ref": "common-defs.schema.json#/$defs/FinalMetrics"
+        }
+      }
+    },
+    "CanonicalMessageSend": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sender": {
+          "$ref": "#/$defs/MessageParticipant"
+        },
+        "recipients": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/MessageParticipant"
+          }
+        },
+        "broadcast": {
+          "type": "boolean"
+        },
+        "task_id": {
+          "type": "string"
+        },
+        "channel_id": {
+          "type": "string"
+        },
+        "thread_id": {
+          "type": "string"
+        },
+        "message_id": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    },
+    "CanonicalMessageRead": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "channel_id": {
+          "type": "string"
+        },
+        "thread_id": {
+          "type": "string"
+        },
+        "message_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "senders": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/MessageParticipant"
+          }
+        },
+        "wait": {
+          "type": "boolean"
+        }
+      }
+    },
+    "CanonicalElicitationProps": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "question": {
+          "type": "string"
+        },
+        "choices": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "requested_schema": {
+          "$ref": "common-defs.schema.json#/$defs/JsonObject"
+        }
+      }
+    },
+    "CanonicalElicitation": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/CanonicalElicitationProps"
+        },
+        {
+          "required": [
+            "question"
+          ]
+        }
+      ]
+    },
+    "CanonicalTimer": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "duration_sec": {
+          "type": "number",
+          "minimum": 0
+        },
+        "cron_expression": {
+          "type": "string"
+        },
+        "expire_time": {
+          "$ref": "common-defs.schema.json#/$defs/Timestamp"
+        },
+        "prompt": {
+          "type": "string"
+        }
+      }
+    },
+    "CanonicalSyntheticContextProps": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": [
+            "system",
+            "environment",
+            "event"
+          ]
+        }
+      }
+    },
+    "CanonicalSyntheticContext": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/CanonicalSyntheticContextProps"
+        },
+        {
+          "required": [
+            "source"
+          ]
+        }
+      ]
+    },
+    "CanonicalTaskStatusProps": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "wait": {
+          "type": "boolean"
+        },
+        "wait_timeout_sec": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "CanonicalTaskStatus": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/CanonicalTaskStatusProps"
+        },
+        {
+          "required": [
+            "task_id"
+          ]
+        }
+      ]
+    },
+    "CanonicalTaskList": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "task_type": {
+          "type": "string"
+        },
+        "include_completed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "CanonicalTaskStopProps": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "signal": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      }
+    },
+    "CanonicalTaskStop": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/CanonicalTaskStopProps"
+        },
+        {
+          "required": [
+            "task_id"
+          ]
+        }
+      ]
+    },
+    "CanonicalShellCommandProps": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "task_id": {
+          "type": "string"
+        },
+        "cwd": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        },
+        "exit_code": {
+          "type": "integer"
+        }
+      }
+    },
+    "CanonicalShellCommand": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/CanonicalShellCommandProps"
+        },
+        {
+          "required": [
+            "command"
+          ]
+        }
+      ]
+    },
+    "CanonicalShellSendInputProps": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "input": {
+          "type": "string"
+        }
+      }
+    },
+    "CanonicalShellSendInput": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/CanonicalShellSendInputProps"
+        },
+        {
+          "required": [
+            "task_id",
+            "input"
+          ]
+        }
+      ]
+    },
+    "CanonicalScriptExec": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "pid": {
+          "type": "string"
+        },
+        "language": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "arguments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "exit_code": {
+          "type": "integer"
+        }
+      }
+    },
+    "CanonicalFileReadProps": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scope": {
+          "$ref": "common-defs.schema.json#/$defs/FileScope"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "line_start": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "line_end": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "digest": {
+          "$ref": "common-defs.schema.json#/$defs/Sha256Urn"
+        }
+      }
+    },
+    "CanonicalFileRead": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/CanonicalFileReadProps"
+        },
+        {
+          "required": [
+            "path"
+          ]
+        }
+      ]
+    },
+    "CanonicalFileWriteProps": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scope": {
+          "$ref": "common-defs.schema.json#/$defs/FileScope"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operation": {
+          "type": "string",
+          "enum": [
+            "create",
+            "edit",
+            "append"
+          ]
+        },
+        "diff": {
+          "type": "string"
+        },
+        "before_digest": {
+          "$ref": "common-defs.schema.json#/$defs/Sha256Urn"
+        },
+        "after_digest": {
+          "$ref": "common-defs.schema.json#/$defs/Sha256Urn"
+        }
+      }
+    },
+    "CanonicalFileWrite": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/CanonicalFileWriteProps"
+        },
+        {
+          "required": [
+            "path"
+          ]
+        }
+      ]
+    },
+    "CanonicalFileSearchProps": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scope": {
+          "$ref": "common-defs.schema.json#/$defs/FileScope"
+        },
+        "query": {
+          "type": "string"
+        },
+        "directory": {
+          "type": "string"
+        },
+        "file_extensions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "CanonicalFileSearch": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/CanonicalFileSearchProps"
+        },
+        {
+          "required": [
+            "query"
+          ]
+        }
+      ]
+    },
+    "CanonicalFileListProps": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scope": {
+          "$ref": "common-defs.schema.json#/$defs/FileScope"
+        },
+        "directory": {
+          "type": "string",
+          "minLength": 1
+        },
+        "glob_pattern": {
+          "type": "string"
+        },
+        "recursive": {
+          "type": "boolean"
+        }
+      }
+    },
+    "CanonicalFileList": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/CanonicalFileListProps"
+        },
+        {
+          "required": [
+            "directory"
+          ]
+        }
+      ]
+    },
+    "CanonicalFileMoveProps": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scope": {
+          "$ref": "common-defs.schema.json#/$defs/FileScope"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "destination": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "CanonicalFileMove": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/CanonicalFileMoveProps"
+        },
+        {
+          "required": [
+            "source",
+            "destination"
+          ]
+        }
+      ]
+    },
+    "CanonicalFileDeleteProps": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scope": {
+          "$ref": "common-defs.schema.json#/$defs/FileScope"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recursive": {
+          "type": "boolean"
+        },
+        "before_digest": {
+          "$ref": "common-defs.schema.json#/$defs/Sha256Urn"
+        }
+      }
+    },
+    "CanonicalFileDelete": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/CanonicalFileDeleteProps"
+        },
+        {
+          "required": [
+            "path"
+          ]
+        }
+      ]
+    },
+    "CanonicalSearchProps": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "query": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        }
+      }
+    },
+    "CanonicalSearch": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/CanonicalSearchProps"
+        },
+        {
+          "required": [
+            "query"
+          ]
+        }
+      ]
+    },
+    "CanonicalWebFetchProps": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "method": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "headers": {
+          "$ref": "common-defs.schema.json#/$defs/JsonObject"
+        },
+        "request_body": {
+          "type": "string"
+        },
+        "response_status": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 599
+        }
+      }
+    },
+    "CanonicalWebFetch": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/CanonicalWebFetchProps"
+        },
+        {
+          "required": [
+            "url"
+          ]
+        }
+      ]
+    },
+    "CanonicalSkillActivateProps": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "skill_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "skill_identifier": {
+          "$ref": "common-defs.schema.json#/$defs/ArdUrn"
+        },
+        "prompt": {
+          "type": "string"
+        }
+      }
+    },
+    "CanonicalSkillActivate": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/CanonicalSkillActivateProps"
+        },
+        {
+          "required": [
+            "skill_name"
+          ]
+        }
+      ]
+    },
+    "CanonicalSkillReferenceProps": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "skill_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "skill_identifier": {
+          "$ref": "common-defs.schema.json#/$defs/ArdUrn"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "CanonicalSkillReference": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/CanonicalSkillReferenceProps"
+        },
+        {
+          "required": [
+            "skill_name",
+            "path"
+          ]
+        }
+      ]
+    },
+    "CanonicalSkillScriptProps": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "skill_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "skill_identifier": {
+          "$ref": "common-defs.schema.json#/$defs/ArdUrn"
+        },
+        "script_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "arguments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cwd": {
+          "type": "string"
+        }
+      }
+    },
+    "CanonicalSkillScript": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/CanonicalSkillScriptProps"
+        },
+        {
+          "required": [
+            "skill_name",
+            "script_name"
+          ]
+        }
+      ]
+    },
+    "CanonicalGenerateMediaProps": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "modality": {
+          "$ref": "common-defs.schema.json#/$defs/Modality"
+        },
+        "prompt": {
+          "type": "string"
+        },
+        "model": {
+          "$ref": "common-defs.schema.json#/$defs/ModelMetadata"
+        },
+        "candidate_count": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "CanonicalGenerateMedia": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/CanonicalGenerateMediaProps"
+        },
+        {
+          "required": [
+            "modality",
+            "prompt"
+          ]
+        }
+      ]
+    },
+    "CanonicalExtensionProps": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "namespace": {
+          "type": "string",
+          "minLength": 1
+        },
+        "data": {
+          "$ref": "common-defs.schema.json#/$defs/JsonObject"
+        }
+      }
+    },
+    "CanonicalExtension": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/CanonicalExtensionProps"
+        },
+        {
+          "required": [
+            "namespace"
+          ]
+        }
+      ]
+    },
+    "CanonicalResourceDiscoveryProps": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "query": {
+          "type": "string"
+        },
+        "types": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "CanonicalResourceDiscovery": {
+      "type": "object",
+      "allOf": [
+        {
+          "$ref": "#/$defs/CanonicalResourceDiscoveryProps"
+        },
+        {
+          "required": [
+            "query"
+          ]
+        }
+      ]
+    },
+    "CanonicalVariantUnion": {
+      "type": "object",
+      "oneOf": [
+        {
+          "required": [
+            "multi"
+          ],
+          "properties": {
+            "type": {
+              "const": "multi"
+            }
+          }
+        },
+        {
+          "required": [
+            "subagent"
+          ],
+          "properties": {
+            "type": {
+              "const": "subagent"
+            }
+          }
+        },
+        {
+          "required": [
+            "message_send"
+          ],
+          "properties": {
+            "type": {
+              "const": "message_send"
+            }
+          }
+        },
+        {
+          "required": [
+            "message_read"
+          ],
+          "properties": {
+            "type": {
+              "const": "message_read"
+            }
+          }
+        },
+        {
+          "required": [
+            "elicitation"
+          ],
+          "properties": {
+            "type": {
+              "const": "elicitation"
+            }
+          }
+        },
+        {
+          "required": [
+            "timer"
+          ],
+          "properties": {
+            "type": {
+              "const": "timer"
+            }
+          }
+        },
+        {
+          "required": [
+            "synthetic_context"
+          ],
+          "properties": {
+            "type": {
+              "const": "synthetic_context"
+            }
+          }
+        },
+        {
+          "required": [
+            "task_status"
+          ],
+          "properties": {
+            "type": {
+              "const": "task_status"
+            }
+          }
+        },
+        {
+          "required": [
+            "task_list"
+          ],
+          "properties": {
+            "type": {
+              "const": "task_list"
+            }
+          }
+        },
+        {
+          "required": [
+            "task_stop"
+          ],
+          "properties": {
+            "type": {
+              "const": "task_stop"
+            }
+          }
+        },
+        {
+          "required": [
+            "shell_command"
+          ],
+          "properties": {
+            "type": {
+              "const": "shell_command"
+            }
+          }
+        },
+        {
+          "required": [
+            "shell_send_input"
+          ],
+          "properties": {
+            "type": {
+              "const": "shell_send_input"
+            }
+          }
+        },
+        {
+          "required": [
+            "script_exec"
+          ],
+          "properties": {
+            "type": {
+              "const": "script_exec"
+            }
+          }
+        },
+        {
+          "required": [
+            "file_read"
+          ],
+          "properties": {
+            "type": {
+              "const": "file_read"
+            }
+          }
+        },
+        {
+          "required": [
+            "file_write"
+          ],
+          "properties": {
+            "type": {
+              "const": "file_write"
+            }
+          }
+        },
+        {
+          "required": [
+            "file_search"
+          ],
+          "properties": {
+            "type": {
+              "const": "file_search"
+            }
+          }
+        },
+        {
+          "required": [
+            "file_list"
+          ],
+          "properties": {
+            "type": {
+              "const": "file_list"
+            }
+          }
+        },
+        {
+          "required": [
+            "file_move"
+          ],
+          "properties": {
+            "type": {
+              "const": "file_move"
+            }
+          }
+        },
+        {
+          "required": [
+            "file_delete"
+          ],
+          "properties": {
+            "type": {
+              "const": "file_delete"
+            }
+          }
+        },
+        {
+          "required": [
+            "search"
+          ],
+          "properties": {
+            "type": {
+              "const": "search"
+            }
+          }
+        },
+        {
+          "required": [
+            "web_fetch"
+          ],
+          "properties": {
+            "type": {
+              "const": "web_fetch"
+            }
+          }
+        },
+        {
+          "required": [
+            "skill_activate"
+          ],
+          "properties": {
+            "type": {
+              "const": "skill_activate"
+            }
+          }
+        },
+        {
+          "required": [
+            "skill_reference"
+          ],
+          "properties": {
+            "type": {
+              "const": "skill_reference"
+            }
+          }
+        },
+        {
+          "required": [
+            "skill_script"
+          ],
+          "properties": {
+            "type": {
+              "const": "skill_script"
+            }
+          }
+        },
+        {
+          "required": [
+            "generate_media"
+          ],
+          "properties": {
+            "type": {
+              "const": "generate_media"
+            }
+          }
+        },
+        {
+          "required": [
+            "extension"
+          ],
+          "properties": {
+            "type": {
+              "const": "extension"
+            }
+          }
+        },
+        {
+          "required": [
+            "resource_discovery"
+          ],
+          "properties": {
+            "type": {
+              "const": "resource_discovery"
+            }
+          }
+        },
+        {
+          "required": [
+            "mcp"
+          ],
+          "properties": {
+            "type": {
+              "const": "mcp_tool"
+            }
+          },
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "multi"
+                ]
+              },
+              {
+                "required": [
+                  "subagent"
+                ]
+              },
+              {
+                "required": [
+                  "message_send"
+                ]
+              },
+              {
+                "required": [
+                  "message_read"
+                ]
+              },
+              {
+                "required": [
+                  "elicitation"
+                ]
+              },
+              {
+                "required": [
+                  "timer"
+                ]
+              },
+              {
+                "required": [
+                  "synthetic_context"
+                ]
+              },
+              {
+                "required": [
+                  "task_status"
+                ]
+              },
+              {
+                "required": [
+                  "task_list"
+                ]
+              },
+              {
+                "required": [
+                  "task_stop"
+                ]
+              },
+              {
+                "required": [
+                  "shell_command"
+                ]
+              },
+              {
+                "required": [
+                  "shell_send_input"
+                ]
+              },
+              {
+                "required": [
+                  "script_exec"
+                ]
+              },
+              {
+                "required": [
+                  "file_read"
+                ]
+              },
+              {
+                "required": [
+                  "file_write"
+                ]
+              },
+              {
+                "required": [
+                  "file_search"
+                ]
+              },
+              {
+                "required": [
+                  "file_list"
+                ]
+              },
+              {
+                "required": [
+                  "file_move"
+                ]
+              },
+              {
+                "required": [
+                  "file_delete"
+                ]
+              },
+              {
+                "required": [
+                  "search"
+                ]
+              },
+              {
+                "required": [
+                  "web_fetch"
+                ]
+              },
+              {
+                "required": [
+                  "skill_activate"
+                ]
+              },
+              {
+                "required": [
+                  "skill_reference"
+                ]
+              },
+              {
+                "required": [
+                  "skill_script"
+                ]
+              },
+              {
+                "required": [
+                  "generate_media"
+                ]
+              },
+              {
+                "required": [
+                  "extension"
+                ]
+              },
+              {
+                "required": [
+                  "resource_discovery"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "CanonicalAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/CanonicalActionType"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "mcp": {
+          "$ref": "#/$defs/CanonicalMcpProvenance"
+        },
+        "multi": {
+          "$ref": "#/$defs/CanonicalMultiAction"
+        },
+        "subagent": {
+          "$ref": "#/$defs/CanonicalSubagent"
+        },
+        "message_send": {
+          "$ref": "#/$defs/CanonicalMessageSend"
+        },
+        "message_read": {
+          "$ref": "#/$defs/CanonicalMessageRead"
+        },
+        "elicitation": {
+          "$ref": "#/$defs/CanonicalElicitation"
+        },
+        "timer": {
+          "$ref": "#/$defs/CanonicalTimer"
+        },
+        "synthetic_context": {
+          "$ref": "#/$defs/CanonicalSyntheticContext"
+        },
+        "task_status": {
+          "$ref": "#/$defs/CanonicalTaskStatus"
+        },
+        "task_list": {
+          "$ref": "#/$defs/CanonicalTaskList"
+        },
+        "task_stop": {
+          "$ref": "#/$defs/CanonicalTaskStop"
+        },
+        "shell_command": {
+          "$ref": "#/$defs/CanonicalShellCommand"
+        },
+        "shell_send_input": {
+          "$ref": "#/$defs/CanonicalShellSendInput"
+        },
+        "script_exec": {
+          "$ref": "#/$defs/CanonicalScriptExec"
+        },
+        "file_read": {
+          "$ref": "#/$defs/CanonicalFileRead"
+        },
+        "file_write": {
+          "$ref": "#/$defs/CanonicalFileWrite"
+        },
+        "file_search": {
+          "$ref": "#/$defs/CanonicalFileSearch"
+        },
+        "file_list": {
+          "$ref": "#/$defs/CanonicalFileList"
+        },
+        "file_move": {
+          "$ref": "#/$defs/CanonicalFileMove"
+        },
+        "file_delete": {
+          "$ref": "#/$defs/CanonicalFileDelete"
+        },
+        "search": {
+          "$ref": "#/$defs/CanonicalSearch"
+        },
+        "web_fetch": {
+          "$ref": "#/$defs/CanonicalWebFetch"
+        },
+        "skill_activate": {
+          "$ref": "#/$defs/CanonicalSkillActivate"
+        },
+        "skill_reference": {
+          "$ref": "#/$defs/CanonicalSkillReference"
+        },
+        "skill_script": {
+          "$ref": "#/$defs/CanonicalSkillScript"
+        },
+        "generate_media": {
+          "$ref": "#/$defs/CanonicalGenerateMedia"
+        },
+        "extension": {
+          "$ref": "#/$defs/CanonicalExtension"
+        },
+        "resource_discovery": {
+          "$ref": "#/$defs/CanonicalResourceDiscovery"
+        },
+        "extensions": {
+          "$ref": "common-defs.schema.json#/$defs/Extensions"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/$defs/CanonicalVariantUnion"
+        }
+      ]
+    },
+    "CanonicalActionStrict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/CanonicalActionType"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "mcp": {
+          "$ref": "#/$defs/CanonicalMcpProvenance"
+        },
+        "multi": {
+          "$ref": "#/$defs/CanonicalMultiActionStrict"
+        },
+        "subagent": {
+          "$ref": "#/$defs/CanonicalSubagent"
+        },
+        "message_send": {
+          "$ref": "#/$defs/CanonicalMessageSend"
+        },
+        "message_read": {
+          "$ref": "#/$defs/CanonicalMessageRead"
+        },
+        "elicitation": {
+          "$ref": "#/$defs/CanonicalElicitation"
+        },
+        "timer": {
+          "$ref": "#/$defs/CanonicalTimer"
+        },
+        "synthetic_context": {
+          "$ref": "#/$defs/CanonicalSyntheticContext"
+        },
+        "task_status": {
+          "$ref": "#/$defs/CanonicalTaskStatus"
+        },
+        "task_list": {
+          "$ref": "#/$defs/CanonicalTaskList"
+        },
+        "task_stop": {
+          "$ref": "#/$defs/CanonicalTaskStop"
+        },
+        "shell_command": {
+          "$ref": "#/$defs/CanonicalShellCommand"
+        },
+        "shell_send_input": {
+          "$ref": "#/$defs/CanonicalShellSendInput"
+        },
+        "script_exec": {
+          "$ref": "#/$defs/CanonicalScriptExec"
+        },
+        "file_read": {
+          "$ref": "#/$defs/CanonicalFileRead"
+        },
+        "file_write": {
+          "$ref": "#/$defs/CanonicalFileWrite"
+        },
+        "file_search": {
+          "$ref": "#/$defs/CanonicalFileSearch"
+        },
+        "file_list": {
+          "$ref": "#/$defs/CanonicalFileList"
+        },
+        "file_move": {
+          "$ref": "#/$defs/CanonicalFileMove"
+        },
+        "file_delete": {
+          "$ref": "#/$defs/CanonicalFileDelete"
+        },
+        "search": {
+          "$ref": "#/$defs/CanonicalSearch"
+        },
+        "web_fetch": {
+          "$ref": "#/$defs/CanonicalWebFetch"
+        },
+        "skill_activate": {
+          "$ref": "#/$defs/CanonicalSkillActivate"
+        },
+        "skill_reference": {
+          "$ref": "#/$defs/CanonicalSkillReference"
+        },
+        "skill_script": {
+          "$ref": "#/$defs/CanonicalSkillScript"
+        },
+        "generate_media": {
+          "$ref": "#/$defs/CanonicalGenerateMedia"
+        },
+        "extension": {
+          "$ref": "#/$defs/CanonicalExtension"
+        },
+        "resource_discovery": {
+          "$ref": "#/$defs/CanonicalResourceDiscovery"
+        },
+        "extensions": {
+          "$ref": "common-defs.schema.json#/$defs/Extensions"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/$defs/CanonicalVariantUnion"
+        }
+      ]
+    },
+    "CanonicalActionPartial": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/CanonicalActionType"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "mcp": {
+          "$ref": "#/$defs/CanonicalMcpProvenance"
+        },
+        "multi": {
+          "$ref": "#/$defs/CanonicalMultiActionPartial"
+        },
+        "subagent": {
+          "$ref": "#/$defs/CanonicalSubagent"
+        },
+        "message_send": {
+          "$ref": "#/$defs/CanonicalMessageSend"
+        },
+        "message_read": {
+          "$ref": "#/$defs/CanonicalMessageRead"
+        },
+        "elicitation": {
+          "$ref": "#/$defs/CanonicalElicitationProps"
+        },
+        "timer": {
+          "$ref": "#/$defs/CanonicalTimer"
+        },
+        "synthetic_context": {
+          "$ref": "#/$defs/CanonicalSyntheticContextProps"
+        },
+        "task_status": {
+          "$ref": "#/$defs/CanonicalTaskStatusProps"
+        },
+        "task_list": {
+          "$ref": "#/$defs/CanonicalTaskList"
+        },
+        "task_stop": {
+          "$ref": "#/$defs/CanonicalTaskStopProps"
+        },
+        "shell_command": {
+          "$ref": "#/$defs/CanonicalShellCommandProps"
+        },
+        "shell_send_input": {
+          "$ref": "#/$defs/CanonicalShellSendInputProps"
+        },
+        "script_exec": {
+          "$ref": "#/$defs/CanonicalScriptExec"
+        },
+        "file_read": {
+          "$ref": "#/$defs/CanonicalFileReadProps"
+        },
+        "file_write": {
+          "$ref": "#/$defs/CanonicalFileWriteProps"
+        },
+        "file_search": {
+          "$ref": "#/$defs/CanonicalFileSearchProps"
+        },
+        "file_list": {
+          "$ref": "#/$defs/CanonicalFileListProps"
+        },
+        "file_move": {
+          "$ref": "#/$defs/CanonicalFileMoveProps"
+        },
+        "file_delete": {
+          "$ref": "#/$defs/CanonicalFileDeleteProps"
+        },
+        "search": {
+          "$ref": "#/$defs/CanonicalSearchProps"
+        },
+        "web_fetch": {
+          "$ref": "#/$defs/CanonicalWebFetchProps"
+        },
+        "skill_activate": {
+          "$ref": "#/$defs/CanonicalSkillActivateProps"
+        },
+        "skill_reference": {
+          "$ref": "#/$defs/CanonicalSkillReferenceProps"
+        },
+        "skill_script": {
+          "$ref": "#/$defs/CanonicalSkillScriptProps"
+        },
+        "generate_media": {
+          "$ref": "#/$defs/CanonicalGenerateMediaProps"
+        },
+        "extension": {
+          "$ref": "#/$defs/CanonicalExtensionProps"
+        },
+        "resource_discovery": {
+          "$ref": "#/$defs/CanonicalResourceDiscoveryProps"
+        },
+        "extensions": {
+          "$ref": "common-defs.schema.json#/$defs/Extensions"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/$defs/CanonicalVariantUnion"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,2 @@
+{"type":"meta","meta":{"schema_version":"ATIF-v2.0","document_type":"trajectories"}}
+{"type":"trajectory","trajectory_id":"traj-bad-metrics","trajectory":{"agent":{"name":"demo"},"final_metrics":{"total_input_tokens":-50,"total_steps":"three"}}}

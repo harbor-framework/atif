@@ -1,0 +1,107 @@
+---
+import { getCollection, render, type CollectionEntry } from 'astro:content';
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import SpecStatusBanner from '../../../components/SpecStatusBanner.astro';
+import SchemaCodeEmbed from '../../../components/SchemaCodeEmbed.astro';
+import {
+  buildStarlightSidebar,
+  discoverSpecVersions,
+  type VersionInfo,
+} from '../../../lib/spec-loader';
+
+export async function getStaticPaths() {
+  const specs = await getCollection('specs');
+  const versions = discoverSpecVersions();
+  const versionMap = new Map(versions.map((v) => [v.dirName, v]));
+
+  const paths: Array<{
+    params: { version: string; slug: string | undefined };
+    props: { entry: CollectionEntry<'specs'>; versionInfo: VersionInfo; pageSlug?: string };
+  }> = [];
+
+  for (const entry of specs) {
+    // Normalize entry id (Astro glob loader strips .md and lowercases)
+    const id = entry.id.replace(/\\/g, '/');
+    const match = id.match(/^(v\d+\.\d+)\/(.+)$/i);
+    if (!match) continue;
+
+    const versionDir = match[1].toLowerCase();
+    const remainder = match[2];
+    const versionInfo = versionMap.get(versionDir);
+    if (!versionInfo) continue;
+
+    if (remainder.toLowerCase() === 'spec') {
+      paths.push({
+        params: { version: versionDir, slug: undefined },
+        props: { entry, versionInfo, pageSlug: undefined },
+      });
+    } else if (remainder.toLowerCase() === 'changelog') {
+      paths.push({
+        params: { version: versionDir, slug: 'changelog' },
+        props: { entry, versionInfo, pageSlug: 'changelog' },
+      });
+    } else if (remainder.toLowerCase().startsWith('references/')) {
+      const refSlug = remainder.replace(/^references\//i, '').toLowerCase();
+      paths.push({
+        params: { version: versionDir, slug: `references/${refSlug}` },
+        props: { entry, versionInfo, pageSlug: `references/${refSlug}` },
+      });
+    }
+  }
+
+  return paths;
+}
+
+const { entry, versionInfo, pageSlug } = Astro.props;
+const { Content, headings } = await render(entry);
+
+const isProjectionsPage =
+  pageSlug === 'references/projections' &&
+  versionInfo.schemas.some((s) => s.fileName === 'atif.proto' || s.fileName === 'warehouse.sql');
+
+const filteredHeadings = headings.filter((h) => h.depth >= 2);
+if (isProjectionsPage) {
+  filteredHeadings.push({
+    depth: 2,
+    slug: 'canonical-schema-sources',
+    text: 'Canonical Schema Sources',
+  });
+}
+
+const sidebar = buildStarlightSidebar(versionInfo.dirName);
+---
+
+<StarlightPage
+  frontmatter={{
+    title: entry.data.title,
+    description: entry.data.description,
+  }}
+  headings={filteredHeadings}
+  sidebar={sidebar}
+>
+  <SpecStatusBanner version={versionInfo} />
+
+  <Content />
+
+  {isProjectionsPage && (
+    <SchemaCodeEmbed
+      versionDir={versionInfo.dirName}
+      items={[
+        {
+          fileName: 'atif.proto',
+          lang: 'protobuf',
+          title: 'Protocol Buffer Schema (atif.proto)',
+          description:
+            'Normative proto3 wire definitions for AtifRecord, Event, Session, Trajectory, Step, Action, and CanonicalAction.',
+        },
+        {
+          fileName: 'warehouse.sql',
+          lang: 'sql',
+          title: 'Warehouse DDL (warehouse.sql)',
+          description:
+            'Canonical BigQuery / GoogleSQL partitioned and clustered analytical table projection.',
+        },
+      ]}
+    />
+  )}
+</StarlightPage>

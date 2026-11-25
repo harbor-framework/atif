@@ -1,0 +1,111 @@
+---
+import type { VersionInfo } from '../lib/spec-loader';
+
+interface Props {
+  versions: VersionInfo[];
+  currentVersion: VersionInfo;
+  subPath?: 'spec' | 'changelog';
+}
+
+const { versions, currentVersion, subPath = 'spec' } = Astro.props;
+
+function targetHref(v: VersionInfo): string {
+  if (subPath === 'changelog' && v.changelogHref) {
+    return v.changelogHref;
+  }
+  return v.href;
+}
+---
+
+<div class="atif-version-switcher" data-version-role={currentVersion.role}>
+  <label for="atif-version-select" class="sr-only">Specification version</label>
+  <span class="atif-vs-node" aria-hidden="true"></span>
+  <select
+    id="atif-version-select"
+    class="atif-vs-select"
+    aria-label="Select ATIF specification version"
+    onchange="if (this.value) window.location.href = this.value;"
+  >
+    {versions.map((v) => (
+      <option
+        value={targetHref(v)}
+        selected={v.dirName === currentVersion.dirName}
+      >
+        {v.displayLabel}
+      </option>
+    ))}
+  </select>
+  <svg class="atif-vs-chevron" width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" />
+  </svg>
+</div>
+
+<style>
+  /* Reads as breadcrumb text at rest: no box, just a hollow status node and a chevron */
+  .atif-version-switcher {
+    --vs-node: var(--atif-emerald);
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    margin-inline: -0.3rem;
+    border-radius: 0.375rem;
+    font-variant-numeric: tabular-nums;
+    transition: background-color 120ms ease;
+  }
+
+  .atif-version-switcher[data-version-role='legacy'] {
+    --vs-node: var(--atif-amber-border);
+  }
+
+  .atif-version-switcher[data-version-role='archived'] {
+    --vs-node: var(--atif-border-strong);
+  }
+
+  .atif-version-switcher[data-version-role='draft'] {
+    --vs-node: var(--atif-draft-border);
+  }
+
+  .atif-version-switcher:hover,
+  .atif-version-switcher:focus-within {
+    background: color-mix(in oklch, var(--atif-ink) 6%, transparent);
+  }
+
+  .atif-vs-node {
+    position: absolute;
+    left: 0.4rem;
+    width: 0.5625rem;
+    height: 0.5625rem;
+    border: 2px solid var(--vs-node);
+    border-radius: 50%;
+    box-sizing: border-box;
+    pointer-events: none;
+  }
+
+  .atif-vs-select {
+    appearance: none;
+    field-sizing: content;
+    margin: 0;
+    padding: 0.2rem 1.4rem 0.2rem 1.3rem;
+    border: 0;
+    border-radius: 0.375rem;
+    background: transparent;
+    color: var(--sl-color-white);
+    font-family: var(--sl-font-mono);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1.4;
+    cursor: pointer;
+  }
+
+  .atif-vs-select option {
+    background: var(--atif-surface);
+    color: var(--atif-ink);
+  }
+
+  .atif-vs-chevron {
+    position: absolute;
+    right: 0.4rem;
+    pointer-events: none;
+    color: var(--atif-text-muted);
+  }
+</style>

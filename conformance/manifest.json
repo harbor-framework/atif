@@ -1,0 +1,276 @@
+{
+  "schema_version": "1.0",
+  "atif_versions": [
+    "1.x",
+    "2.0"
+  ],
+  "cases": [
+    {
+      "id": "v1-valid-minimal-1.0",
+      "version": "1.x",
+      "kind": "v1_trajectory",
+      "path": "v1/valid/minimal-v1.0.json",
+      "expect_valid": true,
+      "description": "Minimal valid ATIF-v1.0 trajectory with tool_calls, observation, and metrics."
+    },
+    {
+      "id": "v1-valid-multimodal-1.6",
+      "version": "1.x",
+      "kind": "v1_trajectory",
+      "path": "v1/valid/multimodal-v1.6.json",
+      "expect_valid": true,
+      "description": "ATIF-v1.6 multimodal image ContentPart trajectory with tool_definitions and RL token IDs."
+    },
+    {
+      "id": "v1-valid-embedded-subagent-1.7",
+      "version": "1.x",
+      "kind": "v1_trajectory",
+      "path": "v1/valid/embedded-subagent-v1.7.json",
+      "expect_valid": true,
+      "description": "ATIF-v1.7 trajectory omitting session_id with embedded subagent_trajectories and trajectory_id resolution."
+    },
+    {
+      "id": "v1-valid-audio-1.8",
+      "version": "1.x",
+      "kind": "v1_trajectory",
+      "path": "v1/valid/audio-v1.8.json",
+      "expect_valid": true,
+      "description": "ATIF-v1.8 trajectory using AudioSourceSchema with media_type, path, and duration_sec."
+    },
+    {
+      "id": "v1-invalid-missing-agent",
+      "version": "1.x",
+      "kind": "v1_trajectory",
+      "path": "v1/invalid/missing-agent.json",
+      "expect_valid": false,
+      "description": "Invalid v1.0 trajectory missing required agent object."
+    },
+    {
+      "id": "v1-invalid-non-sequential-step-id",
+      "version": "1.x",
+      "kind": "v1_trajectory",
+      "path": "v1/invalid/non-sequential-step-id.json",
+      "expect_valid": false,
+      "description": "Invalid v1.6 trajectory with non-sequential step_id (1 -> 3)."
+    },
+    {
+      "id": "v1-invalid-broken-subagent-ref",
+      "version": "1.x",
+      "kind": "v1_trajectory",
+      "path": "v1/invalid/broken-v1.7-subagent-ref.json",
+      "expect_valid": false,
+      "description": "Invalid v1.7 trajectory whose subagent_trajectory_ref.trajectory_id is missing from subagent_trajectories."
+    },
+    {
+      "id": "v2-events-valid-minimal",
+      "version": "2.0",
+      "kind": "v2_events",
+      "path": "v2/events/valid/minimal-turn.atif-e.jsonl",
+      "expect_valid": true,
+      "description": "Minimal valid 1-turn ATIF v2.0 events document without session_id."
+    },
+    {
+      "id": "v2-events-valid-branching-root",
+      "version": "2.0",
+      "kind": "v2_events",
+      "path": "v2/events/valid/branching-rollback-and-root.atif-e.jsonl",
+      "expect_valid": true,
+      "description": "Events stream with session patch, standalone EventBranch rollback, and root-level branch omitting after_event_id."
+    },
+    {
+      "id": "v2-events-valid-parallel-tools",
+      "version": "2.0",
+      "kind": "v2_events",
+      "path": "v2/events/valid/parallel-tools-out-of-order.atif-e.jsonl",
+      "expect_valid": true,
+      "description": "Parallel tool calls with out-of-order action result updates and partial canonical exit_code patches."
+    },
+    {
+      "id": "v2-events-valid-multi-env-executors",
+      "version": "2.0",
+      "kind": "v2_events",
+      "path": "v2/events/valid/multi-env-and-executors.atif-e.jsonl",
+      "expect_valid": true,
+      "description": "Multi-environment Trajectory.environments[] and all four closed Action.executor planes (client, environment, provider, external)."
+    },
+    {
+      "id": "v2-events-valid-canonical-files-messaging",
+      "version": "2.0",
+      "kind": "v2_events",
+      "path": "v2/events/valid/canonical-files-and-messaging.atif-e.jsonl",
+      "expect_valid": true,
+      "description": "Canonical file_read/file_write/file_delete with SHA-256 digests, orthogonal MCP provenance, and message_send/message_read."
+    },
+    {
+      "id": "v2-events-valid-blobs-truncation",
+      "version": "2.0",
+      "kind": "v2_events",
+      "path": "v2/events/valid/blobs-and-truncation.atif-e.jsonl",
+      "expect_valid": true,
+      "description": "Local truncated_fields with content-addressed SHA-256 BlobReference and multimodal MediaSource parts."
+    },
+    {
+      "id": "v2-events-valid-compaction",
+      "version": "2.0",
+      "kind": "v2_events",
+      "path": "v2/events/valid/compaction-event.atif-e.jsonl",
+      "expect_valid": true,
+      "description": "In-trajectory Step.compaction event with event_id range and pass-through ExtensionRecord."
+    },
+    {
+      "id": "v2-events-invalid-missing-meta",
+      "version": "2.0",
+      "kind": "v2_events",
+      "path": "v2/events/invalid/missing-line1-meta.atif-e.jsonl",
+      "expect_valid": false,
+      "description": "Invalid events file missing mandatory line-1 type='meta' record."
+    },
+    {
+      "id": "v2-events-invalid-mismatched-doc-type",
+      "version": "2.0",
+      "kind": "v2_events",
+      "path": "v2/events/invalid/mismatched-document-type.atif-e.jsonl",
+      "expect_valid": false,
+      "description": "Invalid events document declaring document_type='trajectories' on line 1 with event body rows."
+    },
+    {
+      "id": "v2-events-invalid-schema-version",
+      "version": "2.0",
+      "kind": "v2_events",
+      "path": "v2/events/invalid/invalid-schema-version.atif-e.jsonl",
+      "expect_valid": false,
+      "description": "Invalid events document using ATIF-v1.8 in v2.0 meta.schema_version."
+    },
+    {
+      "id": "v2-events-invalid-action-executor",
+      "version": "2.0",
+      "kind": "v2_events",
+      "path": "v2/events/invalid/invalid-action-executor.atif-e.jsonl",
+      "expect_valid": false,
+      "description": "Invalid Action.executor value outside closed enum {client, environment, provider, external}."
+    },
+    {
+      "id": "v2-events-invalid-sha256-urn",
+      "version": "2.0",
+      "kind": "v2_events",
+      "path": "v2/events/invalid/malformed-sha256-urn.atif-e.jsonl",
+      "expect_valid": false,
+      "description": "Invalid Sha256Urn digest that does not match ^urn:sha256:[0-9a-f]{64}$."
+    },
+    {
+      "id": "v2-events-invalid-missing-event-id",
+      "version": "2.0",
+      "kind": "v2_events",
+      "path": "v2/events/invalid/missing-event-id.atif-e.jsonl",
+      "expect_valid": false,
+      "description": "Invalid TrajectoryEvent omitting required event_id field."
+    },
+    {
+      "id": "v2-traj-valid-reference-session",
+      "version": "2.0",
+      "kind": "v2_trajectories",
+      "path": "v2/trajectories/valid/reference-session.atif.jsonl",
+      "expect_valid": true,
+      "description": "Reference consolidated session with manifest, root trajectory, Delta retry branch, and extension row."
+    },
+    {
+      "id": "v2-traj-valid-standalone-single",
+      "version": "2.0",
+      "kind": "v2_trajectories",
+      "path": "v2/trajectories/valid/standalone-single.atif.jsonl",
+      "expect_valid": true,
+      "description": "Standalone single-trajectory document omitting session_id and session rows."
+    },
+    {
+      "id": "v2-traj-valid-multi-manifest",
+      "version": "2.0",
+      "kind": "v2_trajectories",
+      "path": "v2/trajectories/valid/multi-trajectory-manifest.atif.jsonl",
+      "expect_valid": true,
+      "description": "Multi-trajectory document with meta.manifest, root + delegated subagent lineage, and CanonicalSubagent."
+    },
+    {
+      "id": "v2-traj-valid-rich-step-features",
+      "version": "2.0",
+      "kind": "v2_trajectories",
+      "path": "v2/trajectories/valid/agent-name-citations-duration-compaction.atif.jsonl",
+      "expect_valid": true,
+      "description": "Consolidated trajectory exercising Step.agent_name, Step.citations, StepMetrics.duration_ms/granular, ApprovalInfo, CanonicalMultiAction, and Step.compaction."
+    },
+    {
+      "id": "v2-traj-valid-harbor-extensions",
+      "version": "2.0",
+      "kind": "v2_trajectories",
+      "path": "v2/trajectories/valid/extensions-harbor.atif.jsonl",
+      "expect_valid": true,
+      "description": "Consolidated trajectory with official com.harborframework.{evaluation,rl,v1} inline and top-level ExtensionRecord payloads."
+    },
+    {
+      "id": "v2-traj-invalid-event-row",
+      "version": "2.0",
+      "kind": "v2_trajectories",
+      "path": "v2/trajectories/invalid/event-row-in-trajectories.atif.jsonl",
+      "expect_valid": false,
+      "description": "Invalid trajectories document containing a type='event' row."
+    },
+    {
+      "id": "v2-traj-invalid-record-type",
+      "version": "2.0",
+      "kind": "v2_trajectories",
+      "path": "v2/trajectories/invalid/invalid-record-type.atif.jsonl",
+      "expect_valid": false,
+      "description": "Invalid trajectories document containing unknown AtifRecord type='observation'."
+    },
+    {
+      "id": "v2-traj-invalid-broken-parent-ref",
+      "version": "2.0",
+      "kind": "v2_trajectories",
+      "path": "v2/trajectories/invalid/broken-delta-parent-ref.atif.jsonl",
+      "expect_valid": false,
+      "description": "Invalid Delta Mode trajectory with parent_steps_excluded=true referencing a missing parent_trajectory_id."
+    },
+    {
+      "id": "v2-traj-invalid-final-metrics",
+      "version": "2.0",
+      "kind": "v2_trajectories",
+      "path": "v2/trajectories/invalid/malformed-final-metrics.atif.jsonl",
+      "expect_valid": false,
+      "description": "Invalid trajectory with negative total_input_tokens and string total_steps in final_metrics."
+    },
+    {
+      "id": "v2-traj-invalid-missing-step-id",
+      "version": "2.0",
+      "kind": "v2_trajectories",
+      "path": "v2/trajectories/invalid/missing-step-id.atif.jsonl",
+      "expect_valid": false,
+      "description": "Invalid consolidated StepRecord omitting required step.step_id."
+    },
+    {
+      "id": "v2-consolidate-basic-session",
+      "version": "2.0",
+      "kind": "v2_consolidation",
+      "path": "v2/consolidation/basic-session/input.atif-e.jsonl",
+      "expect_valid": true,
+      "description": "Reference consolidation golden pair matching spec/v2.0/examples/session (winning traj-1 + Delta retry branch traj-1#retry-1).",
+      "expected_path": "v2/consolidation/basic-session/expected.atif.jsonl"
+    },
+    {
+      "id": "v2-consolidate-branching-rewind",
+      "version": "2.0",
+      "kind": "v2_consolidation",
+      "path": "v2/consolidation/branching-rewind/input.atif-e.jsonl",
+      "expect_valid": true,
+      "description": "Standalone EventBranch rollback (reason='rewind') consolidating into winning trunk + Delta child trajectory (steps 3..4).",
+      "expected_path": "v2/consolidation/branching-rewind/expected.atif.jsonl"
+    },
+    {
+      "id": "v2-consolidate-parallel-tools-out-of-order",
+      "version": "2.0",
+      "kind": "v2_consolidation",
+      "path": "v2/consolidation/parallel-tools-out-of-order/input.atif-e.jsonl",
+      "expect_valid": true,
+      "description": "Out-of-order parallel tool_result correlation via R2 + R7 response_id coalescing with zero phantom branches.",
+      "expected_path": "v2/consolidation/parallel-tools-out-of-order/expected.atif.jsonl"
+    }
+  ]
+}

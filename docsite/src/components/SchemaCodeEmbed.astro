@@ -1,0 +1,253 @@
+---
+import { Code } from '@astrojs/starlight/components';
+import { readSchemaFile } from '../lib/spec-loader';
+
+interface SchemaItem {
+  fileName: string;
+  lang: string;
+  title: string;
+  description?: string;
+}
+
+interface Props {
+  versionDir: string;
+  items?: SchemaItem[];
+  fileName?: string;
+  lang?: string;
+  title?: string;
+  description?: string;
+}
+
+const { versionDir, items, fileName, lang, title, description } = Astro.props;
+
+const resolvedItems = (
+  items && items.length > 0
+    ? items
+    : fileName
+      ? [{ fileName, lang: lang ?? 'text', title: title ?? fileName, description }]
+      : []
+)
+  .map((item) => {
+    const code = readSchemaFile(versionDir, item.fileName);
+    if (!code) return null;
+    return {
+      ...item,
+      code,
+      lineCount: code.split('\n').length,
+      rawHref: `/schema/${versionDir}/${item.fileName}`,
+      id: `schema-${item.fileName.replace(/[^a-z0-9]+/gi, '-')}`,
+    };
+  })
+  .filter((x): x is NonNullable<typeof x> => x !== null);
+---
+
+{resolvedItems.length > 0 && (
+  <section class="atif-schema-section not-content" aria-label="Canonical machine-readable schemas">
+    <h2 id="canonical-schema-sources" class="atif-schema-heading">Canonical Schema Sources</h2>
+    <p class="atif-schema-intro">
+      Embedded directly from <code>spec/{versionDir}/schema/</code> at build time so prose and schemas never drift.
+    </p>
+
+    {resolvedItems.map((item, idx) => (
+      <details open={idx === 0} class="atif-schema-embed" id={item.id}>
+        <summary class="atif-schema-embed__header">
+          <div class="atif-schema-embed__left">
+            <svg class="atif-schema-embed__caret" width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <div class="atif-schema-embed__meta">
+              <div class="atif-schema-embed__title-row">
+                <span class="atif-schema-embed__filename">{item.fileName}</span>
+                <span class="atif-schema-embed__count">· {item.lineCount} lines</span>
+              </div>
+              {item.description && (
+                <span class="atif-schema-embed__desc">{item.description}</span>
+              )}
+            </div>
+          </div>
+
+          <div class="atif-schema-embed__actions">
+            <a
+              href={item.rawHref}
+              class="atif-schema-embed__btn"
+              download={item.fileName}
+              onclick="event.stopPropagation()"
+            >
+              Download
+            </a>
+            <a
+              href={item.rawHref}
+              class="atif-schema-embed__btn"
+              onclick="event.stopPropagation()"
+            >
+              View raw
+            </a>
+          </div>
+        </summary>
+
+        <div class="atif-schema-embed__code">
+          <Code code={item.code} lang={item.lang as any} />
+        </div>
+      </details>
+    ))}
+  </section>
+)}
+
+<style>
+  .atif-schema-section {
+    margin-top: 2.5rem;
+  }
+
+  .atif-schema-heading {
+    margin: 0 0 0.75rem 0;
+    font-family: var(--sl-font-heading);
+    font-size: 1.55rem;
+    font-weight: 650;
+    color: var(--sl-color-white);
+  }
+
+  .atif-schema-intro {
+    margin: 0 0 1.25rem 0;
+    color: var(--atif-text-muted);
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+
+  .atif-schema-intro code {
+    font-family: var(--sl-font-mono);
+    font-size: 0.86em;
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+    background: color-mix(in oklch, var(--atif-ink) 6%, transparent);
+  }
+
+  /* Single flat container — zero nested cards or stray left guide stripes */
+  .atif-schema-embed {
+    margin: 1.25rem 0;
+    border: 1px solid var(--atif-border);
+    border-inline-start: 1px solid var(--atif-border);
+    padding: 0;
+    border-radius: 0.45rem;
+    background: var(--atif-surface);
+    overflow: hidden;
+  }
+
+  .atif-schema-embed__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1rem;
+    padding: 0.85rem 1.05rem;
+    background: var(--atif-surface-subtle);
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+  }
+
+  .atif-schema-embed__header::-webkit-details-marker {
+    display: none;
+  }
+
+  .atif-schema-embed[open] .atif-schema-embed__header {
+    border-bottom: 1px solid var(--atif-border);
+  }
+
+  .atif-schema-embed__left {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.55rem;
+    min-width: 0;
+    flex: 1 1 16rem;
+  }
+
+  .atif-schema-embed__caret {
+    flex-shrink: 0;
+    margin-top: 0.22rem;
+    color: var(--atif-text-muted);
+    transition: transform 140ms ease;
+  }
+
+  .atif-schema-embed[open] .atif-schema-embed__caret {
+    transform: rotate(90deg);
+  }
+
+  .atif-schema-embed__meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+  }
+
+  .atif-schema-embed__title-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.35rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .atif-schema-embed__filename {
+    font-family: var(--sl-font-mono);
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--sl-color-white);
+  }
+
+  .atif-schema-embed__count {
+    font-size: 0.8125rem;
+    color: var(--atif-text-muted);
+  }
+
+  .atif-schema-embed__desc {
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--atif-text-muted);
+  }
+
+  .atif-schema-embed__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .atif-schema-embed__btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.28rem 0.65rem;
+    border-radius: 0.35rem;
+    border: 1px solid var(--atif-border-strong);
+    background: var(--atif-surface);
+    color: var(--sl-color-white);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: border-color 140ms ease, color 140ms ease;
+  }
+
+  .atif-schema-embed__btn:hover {
+    border-color: var(--sl-color-accent);
+    color: var(--sl-color-text-accent);
+  }
+
+  .atif-schema-embed__code {
+    max-height: 34rem;
+    overflow: auto;
+    --ec-brdWd: 0px;
+    --ec-brdRad: 0px;
+    --ec-frm-frameBoxShdCssValue: none;
+  }
+
+  .atif-schema-embed__code :global(.expressive-code) {
+    margin: 0 !important;
+  }
+
+  .atif-schema-embed__code :global(figure.frame),
+  .atif-schema-embed__code :global(pre) {
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+  }
+</style>

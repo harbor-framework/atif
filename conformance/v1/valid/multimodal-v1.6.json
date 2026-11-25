@@ -1,0 +1,92 @@
+{
+  "schema_version": "ATIF-v1.6",
+  "session_id": "v1-sess-16",
+  "agent": {
+    "name": "vision-agent",
+    "version": "1.6.0",
+    "model_name": "gpt-5",
+    "tool_definitions": [
+      {
+        "type": "function",
+        "function": {
+          "name": "take_screenshot",
+          "description": "Capture current viewport",
+          "parameters": {
+            "type": "object",
+            "properties": {}
+          }
+        }
+      }
+    ]
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "timestamp": "2026-02-03T12:00:00Z",
+      "source": "user",
+      "message": [
+        {
+          "type": "text",
+          "text": "Inspect this UI bug."
+        },
+        {
+          "type": "image",
+          "source": {
+            "media_type": "image/png",
+            "path": "images/bug.png"
+          }
+        }
+      ]
+    },
+    {
+      "step_id": 2,
+      "timestamp": "2026-02-03T12:00:05Z",
+      "source": "agent",
+      "message": "Capturing updated screenshot.",
+      "tool_calls": [
+        {
+          "tool_call_id": "tc_1",
+          "function_name": "take_screenshot",
+          "arguments": {}
+        }
+      ],
+      "observation": {
+        "results": [
+          {
+            "source_call_id": "tc_1",
+            "content": [
+              {
+                "type": "text",
+                "text": "Captured."
+              },
+              {
+                "type": "image",
+                "source": {
+                  "media_type": "image/png",
+                  "path": "images/after.png"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "metrics": {
+        "prompt_tokens": 500,
+        "completion_tokens": 40,
+        "prompt_token_ids": [
+          101,
+          202,
+          303
+        ],
+        "completion_token_ids": [
+          404,
+          505
+        ],
+        "logprobs": [
+          -0.12,
+          -0.04
+        ]
+      }
+    }
+  ]
+}
