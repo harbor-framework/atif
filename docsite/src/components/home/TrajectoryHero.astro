@@ -1,0 +1,647 @@
+---
+/**
+ * Hero motion graphic: one real run (the v2.0 reference fixture) told in the
+ * logomark's own vocabulary. Eight live events sit on the top lane as chamfered
+ * segments; they fold down onto an emerald trajectory rail that rises from a
+ * hollow start node to a hollow end node, with a discarded retry forking off.
+ *
+ * Decorative for assistive tech (the adjacent copy and the step list carry the
+ * meaning); fully static under `prefers-reduced-motion: reduce`.
+ */
+
+const SEG_W = 58;
+const SEG_GAP = 14;
+const SEG_H = 16;
+const SEG_SKEW = 8; // 8 over 16 = the logomark's 26.565° chamfer
+const X0 = 39;
+const TOP = 26;
+const RAIL_Y = 196;
+const END_X = 584;
+
+const RAIL_PATH = `M56 262L136.3 202Q144.3 196 154.3 196H${END_X}`;
+const RETRY_PATH = 'M368 196L419 234Q427 240 437 240H453';
+
+type Group = 't' | 's1' | 's2' | 'r1' | 's3';
+
+const nodes: Record<string, { x: number; y: number; r: number }> = {
+  start: { x: 56, y: 262, r: 11 },
+  s1: { x: 236, y: RAIL_Y, r: 8.5 },
+  s2: { x: 368, y: RAIL_Y, r: 8.5 },
+  s3: { x: 500, y: RAIL_Y, r: 8.5 },
+  r1: { x: 462, y: 240, r: 7 },
+  end: { x: END_X, y: RAIL_Y, r: 11 },
+};
+
+const eventSpec: Array<{ id: string; group: Group; node: keyof typeof nodes }> = [
+  { id: 'ev-0', group: 't', node: 'start' },
+  { id: 'ev-1', group: 's1', node: 's1' },
+  { id: 'ev-2', group: 's2', node: 's2' },
+  { id: 'ev-3', group: 's2', node: 's2' },
+  { id: 'ev-4', group: 's2', node: 's2' },
+  { id: 'ev-5', group: 'r1', node: 'r1' },
+  { id: 'ev-6', group: 's3', node: 's3' },
+  { id: 'ev-7', group: 't', node: 'end' },
+];
+
+const events = eventSpec.map((e, i) => {
+  const x = X0 + i * (SEG_W + SEG_GAP);
+  const sx = x + (SEG_W - SEG_SKEW) / 2;
+  const sy = TOP + SEG_H + 4;
+  const n = nodes[e.node];
+  const ey = n.y - n.r - 5;
+  const k = (ey - sy) * 0.5;
+  return {
+    ...e,
+    index: i,
+    labelX: x + SEG_W / 2,
+    shape: `M${x + SEG_SKEW} ${TOP}H${x + SEG_W}L${x + SEG_W - SEG_SKEW} ${TOP + SEG_H}H${x}Z`,
+    link: `M${sx} ${sy}C${sx} ${sy + k} ${n.x} ${ey - k} ${n.x} ${ey}`,
+  };
+});
+
+// `order` = the playback beat at which a row / node has been reached (s1, s2, r1, s3, t).
+const rows: Array<{ group: Group; order: number; id: string; who: string; meta: string }> = [
+  { group: 't', order: -1, id: 'traj-1', who: 'claude-code', meta: 'completed' },
+  { group: 's1', order: 0, id: '1', who: 'user', meta: '1 event' },
+  { group: 's2', order: 1, id: '2', who: 'agent', meta: '3 events' },
+  { group: 'r1', order: 2, id: '↳', who: 'retry', meta: 'cancelled' },
+  { group: 's3', order: 3, id: '3', who: 'agent', meta: '1 event' },
+];
+---
+
+<figure class="th" data-trajectory-hero data-state="t">
+  <figcaption class="sr-only">
+    Diagram: eight streamed events from one agent run fold into a three-step trajectory, with a cancelled
+    retry kept as a linked branch.
+  </figcaption>
+
+  <div class="th-lane" aria-hidden="true">
+    <span class="th-lane__name">Events</span>
+    <span class="th-lane__note">appended as they happen</span>
+    <span class="th-lane__file">session.atif-e.jsonl</span>
+  </div>
+
+  <svg class="th-svg" viewBox="0 0 640 284" role="presentation" aria-hidden="true" focusable="false">
+    <!-- fold lines: which events become which step -->
+    <g class="th-links" fill="none">
+      {events.map((e) => (
+        <path class="th-link" d={e.link} data-group={e.group} data-ev={e.index} />
+      ))}
+    </g>
+
+    <!-- live event lane -->
+    <line class="th-evline" x1="20" y1={TOP + SEG_H / 2} x2="620" y2={TOP + SEG_H / 2} />
+    {events.map((e) => (
+      <g class="th-ev" data-group={e.group} data-ev={e.index} style={`--i:${e.index}`}>
+        <path class="th-ev__seg" d={e.shape} />
+        <text class="th-label th-ev__label" x={e.labelX} y={TOP - 9} text-anchor="middle">{e.id}</text>
+      </g>
+    ))}
+
+    <!-- discarded retry branch -->
+    <path class="th-branch" d={RETRY_PATH} fill="none" data-group="r1" data-order="2" />
+
+    <!-- trajectory rail: idle track + progress fill -->
+    <path class="th-rail th-rail--idle" d={RAIL_PATH} fill="none" data-rail />
+    <path class="th-rail th-rail--live" d={RAIL_PATH} fill="none" data-rail-progress />
+
+    <!-- nodes -->
+    <circle class="th-node th-node--terminal" cx={nodes.start.x} cy={nodes.start.y} r={nodes.start.r} data-group="t" data-order="-1" />
+    <circle class="th-node" cx={nodes.s1.x} cy={nodes.s1.y} r={nodes.s1.r} data-group="s1" data-order="0" />
+    <circle class="th-node" cx={nodes.s2.x} cy={nodes.s2.y} r={nodes.s2.r} data-group="s2" data-order="1" />
+    <circle class="th-node" cx={nodes.s3.x} cy={nodes.s3.y} r={nodes.s3.r} data-group="s3" data-order="3" />
+    <circle class="th-node th-node--terminal" cx={nodes.end.x} cy={nodes.end.y} r={nodes.end.r} data-group="t" data-order="4" />
+    <circle class="th-node th-node--branch" cx={nodes.r1.x} cy={nodes.r1.y} r={nodes.r1.r} data-group="r1" data-order="2" />
+
+    <!-- playhead: a soft halo that rides the rail to the step being folded -->
+    <g class="th-pulse" data-pulse>
+      <circle class="th-pulse__halo" r="16" />
+      <circle class="th-pulse__dot" r="3.6" />
+    </g>
+
+    <!-- labels -->
+    <text class="th-label" x="75" y="270">traj-1</text>
+    <text class="th-label" x={nodes.s1.x} y="223" text-anchor="middle">step 1</text>
+    <text class="th-label" x={nodes.s2.x - 6} y="223" text-anchor="middle">step 2</text>
+    <text class="th-label" x={nodes.s3.x} y="223" text-anchor="middle">step 3</text>
+    <text class="th-label" x="476" y="244">retry · cancelled</text>
+    <text class="th-label" x={END_X} y="223" text-anchor="middle">completed</text>
+  </svg>
+
+  <div class="th-lane th-lane--lower" aria-hidden="true">
+    <span class="th-lane__name">Trajectory</span>
+    <span class="th-lane__note">folded into steps</span>
+    <span class="th-lane__file">session.atif.jsonl</span>
+  </div>
+
+  <ol class="th-steps" aria-label="The same run as consolidated steps">
+    {rows.map((row) => (
+      <li>
+        <button type="button" class="th-row" data-group={row.group} data-order={row.order} aria-pressed="false">
+          <span class="th-row__id">{row.id}</span>
+          <span class="th-row__who">{row.who}</span>
+          <span class="th-row__body">
+            {row.group === 't' && <>claude-sonnet-4-5 <span class="th-dim">on linux</span></>}
+            {row.group === 's1' && <>Run pytest on auth.</>}
+            {row.group === 's2' && (
+              <>
+                <code class="th-chip">shell_command</code>
+                <span class="th-mono">pytest test_auth.py</span>
+                <span class="th-dim">→ exit 0</span>
+              </>
+            )}
+            {row.group === 'r1' && <span class="th-dim">accidental extra edit… kept as a sibling branch</span>}
+            {row.group === 's3' && <>All auth tests pass.</>}
+          </span>
+          <span class="th-row__meta">{row.meta}</span>
+        </button>
+      </li>
+    ))}
+  </ol>
+</figure>
+
+<script is:inline>
+  // Runs during parse so below-the-fold reveal styles never flash.
+  document.documentElement.classList.add('atif-js');
+</script>
+
+<script>
+  const ORDER = ['s1', 's2', 'r1', 's3', 't'] as const;
+  type State = (typeof ORDER)[number];
+  const ARRIVED: Record<State, number> = { s1: 1, s2: 4, r1: 5, s3: 6, t: 7 };
+  const PROGRESS_X: Record<State, number> = { s1: 236, s2: 368, r1: 368, s3: 500, t: 584 };
+  const END_X = 584;
+  const BEAT_MS = 2600;
+  const REST_MS = 4200;
+
+  function initTrajectoryHero(root: HTMLElement) {
+    const rail = root.querySelector<SVGPathElement>('[data-rail]');
+    const progress = root.querySelector<SVGPathElement>('[data-rail-progress]');
+    const pulse = root.querySelector<SVGGElement>('[data-pulse]');
+    if (!rail || !progress || !pulse) return;
+
+    const total = rail.getTotalLength();
+    const grouped = Array.from(root.querySelectorAll<HTMLElement | SVGElement>('[data-group]'));
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const motionPath = typeof CSS !== 'undefined' && CSS.supports('offset-path', 'path("M0 0H1")');
+
+    progress.style.strokeDasharray = `${total} ${total}`;
+    if (motionPath) pulse.classList.add('is-ready');
+
+    function apply(state: State) {
+      const beat = ORDER.indexOf(state);
+      const travelled = total - (END_X - PROGRESS_X[state]);
+      root.dataset.state = state;
+      progress!.style.strokeDashoffset = String(total - travelled);
+      pulse!.style.setProperty('offset-distance', `${travelled}px`);
+
+      for (const el of grouped) {
+        const isActive = el.dataset.group === state;
+        el.classList.toggle('is-active', isActive);
+        if (el.dataset.ev !== undefined) {
+          el.classList.toggle('is-future', Number(el.dataset.ev) > ARRIVED[state]);
+        } else if (el.dataset.order !== undefined) {
+          el.classList.toggle('is-future', Number(el.dataset.order) > beat);
+        }
+        if (el instanceof HTMLButtonElement) el.setAttribute('aria-pressed', String(isActive));
+      }
+    }
+
+    let timer: number | undefined;
+    let visible = false;
+    let held = false;
+
+    function stop() {
+      window.clearTimeout(timer);
+      timer = undefined;
+    }
+
+    function schedule() {
+      stop();
+      if (reduceMotion.matches || !visible || held || document.hidden) return;
+      const current = (root.dataset.state as State) ?? 't';
+      timer = window.setTimeout(
+        () => {
+          apply(ORDER[(ORDER.indexOf(current) + 1) % ORDER.length]);
+          schedule();
+        },
+        current === 't' ? REST_MS : BEAT_MS
+      );
+    }
+
+    // Hover or focus a step to inspect it; playback resumes when you leave.
+    for (const row of root.querySelectorAll<HTMLButtonElement>('.th-row')) {
+      const show = () => {
+        held = true;
+        stop();
+        apply(row.dataset.group as State);
+      };
+      row.addEventListener('pointerenter', show);
+      row.addEventListener('focus', show);
+      row.addEventListener('click', show);
+    }
+    const release = () => {
+      held = false;
+      if (reduceMotion.matches) apply('t');
+      schedule();
+    };
+    root.querySelector('.th-steps')?.addEventListener('pointerleave', release);
+    root.querySelector('.th-steps')?.addEventListener('focusout', (event) => {
+      const next = (event as FocusEvent).relatedTarget;
+      if (!(next instanceof Node) || !root.contains(next)) release();
+    });
+
+    new IntersectionObserver(
+      ([entry]) => {
+        visible = entry.isIntersecting;
+        if (visible) root.classList.add('is-in');
+        schedule();
+      },
+      { threshold: 0.25 }
+    ).observe(root);
+    document.addEventListener('visibilitychange', schedule);
+    reduceMotion.addEventListener('change', () => {
+      if (reduceMotion.matches) apply('t');
+      schedule();
+    });
+
+    apply('t');
+  }
+
+  document.querySelectorAll<HTMLElement>('[data-trajectory-hero]').forEach(initTrajectoryHero);
+
+  // Shared scroll-reveal for landing sections (CSS keeps everything visible without JS or with reduced motion).
+  const revealables = document.querySelectorAll<HTMLElement>('[data-reveal]');
+  if (revealables.length > 0) {
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          entry.target.classList.add('is-in');
+          io.unobserve(entry.target);
+        }
+      },
+      { rootMargin: '0px 0px -12% 0px', threshold: 0.12 }
+    );
+    revealables.forEach((el) => io.observe(el));
+  }
+</script>
+
+<style>
+  .th {
+    --th-rail: var(--atif-emerald);
+    --th-rail-idle: color-mix(in oklab, var(--atif-emerald) 24%, var(--atif-surface));
+    --th-carbon: color-mix(in oklab, var(--atif-ink) 82%, var(--atif-surface));
+    --th-faint: color-mix(in oklab, var(--atif-ink) 13%, var(--atif-surface));
+    --th-line: color-mix(in oklab, var(--atif-ink) 26%, var(--atif-surface));
+    --th-ease: cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    margin: 0;
+    padding: 1.15rem 1.25rem 0.5rem;
+    border: 1px solid var(--atif-border);
+    border-radius: 0.95rem;
+    background: var(--atif-surface);
+    box-shadow: var(--atif-shadow-panel);
+    min-width: 0;
+  }
+
+  .th-lane {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    font-size: 0.75rem;
+    line-height: 1.3;
+    color: var(--atif-text-muted);
+  }
+
+  .th-lane--lower {
+    margin-top: 0.35rem;
+    padding-top: 0.9rem;
+    border-top: 1px solid var(--atif-border);
+  }
+
+  .th-lane__name {
+    font-family: var(--sl-font-mono);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--sl-color-white);
+  }
+
+  .th-lane__file {
+    margin-inline-start: auto;
+    font-family: var(--sl-font-mono);
+    font-size: 0.6875rem;
+  }
+
+  .th-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    margin-top: 0.35rem;
+    overflow: visible;
+  }
+
+  .th-label {
+    font-family: var(--sl-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.01em;
+    fill: var(--atif-text-muted);
+  }
+
+  /* Events lane ----------------------------------------------------------- */
+  .th-evline {
+    stroke: var(--atif-border);
+    stroke-width: 1;
+  }
+
+  .th-ev__seg {
+    fill: var(--th-carbon);
+    transition: fill 420ms var(--th-ease);
+  }
+
+  .th-ev.is-future .th-ev__seg {
+    fill: var(--th-faint);
+  }
+
+  .th-ev.is-active .th-ev__seg {
+    fill: var(--th-rail);
+  }
+
+  .th-ev__label {
+    transition: fill 420ms var(--th-ease), opacity 420ms var(--th-ease);
+  }
+
+  .th-ev.is-future .th-ev__label {
+    opacity: 0.45;
+  }
+
+  .th-ev.is-active .th-ev__label {
+    fill: var(--sl-color-text-accent);
+  }
+
+  /* Fold lines ------------------------------------------------------------ */
+  .th-link {
+    stroke: var(--th-line);
+    stroke-width: 1.15;
+    transition: stroke 420ms var(--th-ease), opacity 420ms var(--th-ease), stroke-width 420ms var(--th-ease);
+  }
+
+  .th-link.is-future {
+    opacity: 0.3;
+  }
+
+  .th-link.is-active {
+    stroke: var(--th-rail);
+    stroke-width: 1.9;
+  }
+
+  /* Rail, branch, nodes ---------------------------------------------------- */
+  .th-rail {
+    stroke-width: 7;
+    stroke-linejoin: round;
+  }
+
+  .th-rail--idle {
+    stroke: var(--th-rail-idle);
+  }
+
+  .th-rail--live {
+    stroke: var(--th-rail);
+    transition: stroke-dashoffset 900ms var(--th-ease);
+  }
+
+  .th-branch {
+    stroke: var(--th-line);
+    stroke-width: 2.5;
+    stroke-dasharray: 5 4;
+    transition: stroke 420ms var(--th-ease), opacity 420ms var(--th-ease);
+  }
+
+  .th-branch.is-future {
+    opacity: 0.35;
+  }
+
+  .th-branch.is-active {
+    stroke: var(--atif-ink);
+  }
+
+  .th-node {
+    fill: var(--atif-surface);
+    stroke: var(--th-rail);
+    stroke-width: 5;
+    transition: stroke 420ms var(--th-ease) 240ms;
+  }
+
+  .th-node--terminal {
+    stroke-width: 6.5;
+  }
+
+  .th-node.is-future {
+    stroke: var(--th-rail-idle);
+    transition-delay: 0ms;
+  }
+
+  .th-node--branch {
+    stroke: var(--th-line);
+    stroke-width: 3.5;
+  }
+
+  .th-node--branch.is-future {
+    stroke: var(--th-faint);
+  }
+
+  .th-node--branch.is-active {
+    stroke: var(--atif-ink);
+  }
+
+  /* Playhead --------------------------------------------------------------- */
+  .th-pulse {
+    opacity: 0;
+    offset-path: path('M56 262L136.3 202Q144.3 196 154.3 196H584');
+    offset-rotate: 0deg;
+    offset-distance: 100%;
+    transition: offset-distance 900ms var(--th-ease), opacity 300ms ease;
+  }
+
+  .th-pulse.is-ready {
+    opacity: 1;
+  }
+
+  .th[data-state='t'] .th-pulse.is-ready {
+    opacity: 0;
+  }
+
+  .th-pulse__halo {
+    fill: var(--th-rail);
+    opacity: 0.18;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .th-pulse__dot {
+    fill: var(--th-rail);
+  }
+
+  /* Step list -------------------------------------------------------------- */
+  .th-steps {
+    margin: 0.45rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .th-steps li + li {
+    border-top: 1px solid var(--atif-border);
+  }
+
+  .th-row {
+    display: grid;
+    grid-template-columns: 2.9rem 5.6rem minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 0.6rem;
+    width: calc(100% + 1.5rem);
+    margin: 0 -0.75rem;
+    padding: 0.56rem 0.75rem;
+    border: 0;
+    border-radius: 0.45rem;
+    background: transparent;
+    color: var(--sl-color-gray-2);
+    font-family: var(--sl-font);
+    font-size: 0.875rem;
+    line-height: 1.4;
+    text-align: start;
+    cursor: pointer;
+    transition: background-color 320ms var(--th-ease), color 320ms var(--th-ease), opacity 420ms var(--th-ease);
+  }
+
+  .th-row__id,
+  .th-row__who,
+  .th-row__meta,
+  .th-mono {
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+  }
+
+  .th-row__id {
+    color: var(--atif-text-muted);
+    transition: color 320ms var(--th-ease);
+  }
+
+  .th-row__who {
+    color: var(--sl-color-white);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .th-row__body {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.2rem 0.5rem;
+    min-width: 0;
+    color: var(--sl-color-gray-1);
+  }
+
+  .th-row__meta {
+    color: var(--atif-text-muted);
+    white-space: nowrap;
+  }
+
+  .th-dim {
+    color: var(--atif-text-muted);
+  }
+
+  .th-chip {
+    padding: 0.08rem 0.4rem;
+    border-radius: 0.25rem;
+    background: var(--atif-accent-tint);
+    color: var(--atif-accent-tint-ink);
+    font-family: var(--sl-font-mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .th-row.is-future {
+    opacity: 0.38;
+  }
+
+  .th-row:hover,
+  .th-row.is-active {
+    background: color-mix(in oklab, var(--atif-emerald) 9%, transparent);
+    color: var(--sl-color-white);
+  }
+
+  .th-row.is-active .th-row__id {
+    color: var(--sl-color-text-accent);
+  }
+
+  .th-row:focus-visible {
+    outline: 2px solid var(--atif-emerald);
+    outline-offset: -2px;
+  }
+
+  /* Motion: events stream in once; the playhead halo breathes ------------- */
+  @media (prefers-reduced-motion: no-preference) {
+    .th-ev {
+      animation: th-arrive 620ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+      animation-delay: calc(var(--i) * 85ms + 150ms);
+    }
+
+    .th-pulse__halo {
+      animation: th-breathe 2.6s ease-in-out infinite;
+    }
+
+    @keyframes th-arrive {
+      from {
+        opacity: 0;
+        transform: translateX(-10px);
+      }
+    }
+
+    @keyframes th-breathe {
+      0%,
+      100% {
+        transform: scale(0.72);
+        opacity: 0.24;
+      }
+      50% {
+        transform: scale(1.08);
+        opacity: 0.1;
+      }
+    }
+  }
+
+  @media (max-width: 40rem) {
+    .th {
+      padding: 0.95rem 0.9rem 0.35rem;
+    }
+
+    .th-lane__note {
+      display: none;
+    }
+
+    /* SVG text would shrink below legibility on phones; the step list carries the labels */
+    .th-label {
+      display: none;
+    }
+
+    .th-row {
+      grid-template-columns: 2.6rem minmax(0, 1fr) auto;
+      row-gap: 0.1rem;
+    }
+
+    .th-row__who {
+      grid-column: 2;
+    }
+
+    .th-row__meta {
+      grid-column: 3;
+      grid-row: 1;
+    }
+
+    .th-row__body {
+      grid-column: 2 / -1;
+    }
+  }
+</style>

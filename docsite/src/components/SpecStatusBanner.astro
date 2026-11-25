@@ -6,7 +6,7 @@ interface Props {
 }
 
 const { version } = Astro.props;
-// Do NOT render a status banner on Latest (v2.0) — VersionSwitcher already identifies Latest.
+// Do NOT render a status note on Latest (v2.0) — the version switcher already says so.
 const shouldShow = version.role !== 'latest';
 ---
 
@@ -16,58 +16,36 @@ const shouldShow = version.role !== 'latest';
     role="note"
     data-spec-role={version.role}
   >
-    <span class="atif-status-banner__icon" aria-hidden="true">
-      {version.role === 'legacy' && (
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <path d="M8 2.2L14.2 13.2H1.8L8 2.2Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
-          <path d="M8 6.2V9.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
-          <circle cx="8" cy="11.3" r="0.75" fill="currentColor" />
-        </svg>
-      )}
-      {version.role === 'archived' && (
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <rect x="2.2" y="3" width="11.6" height="2.6" rx="0.8" stroke="currentColor" stroke-width="1.35" />
-          <path d="M3.2 5.6V12.2C3.2 12.75 3.65 13.2 4.2 13.2H11.8C12.35 13.2 12.8 12.75 12.8 12.2V5.6" stroke="currentColor" stroke-width="1.35" />
-          <path d="M6.4 8.5H9.6" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" />
-        </svg>
-      )}
-      {version.role === 'draft' && (
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <circle cx="8" cy="8" r="5.8" stroke="currentColor" stroke-width="1.35" />
-          <path d="M8 7.4V11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
-          <circle cx="8" cy="5.2" r="0.8" fill="currentColor" />
-        </svg>
-      )}
-    </span>
+    <span class="atif-status-banner__node" aria-hidden="true"></span>
 
     <div class="atif-status-banner__body">
       {version.role === 'legacy' && (
         <p>
-          <strong>Legacy ({version.dirName})</strong> — Final release of the ATIF v{version.major}.x line.
-          New implementations should target{' '}
-          <a href={version.latestHref}>ATIF v{version.latestVersion} (Latest)</a>{' '}
-          or read the <a href="/guides/migrating-from-v1/">v1.x to v2.0 Migration Guide</a>.
+          <strong>Legacy</strong>
+          {version.dirName} is the final release of the v{version.major}.x line. New work should target{' '}
+          <a href={version.latestHref}>ATIF v{version.latestVersion}</a>; the{' '}
+          <a href="/guides/migrating-from-v1/">migration guide</a> covers the move.
         </p>
       )}
       {version.role === 'archived' && (
         <p>
-          <strong>Archived ({version.dirName})</strong> — Historical snapshot
-          {version.releaseDate ? ` from ${version.releaseDate}` : ''}.
-          See <a href={version.latestHref}>ATIF v{version.latestVersion} (Latest)</a>
+          <strong>Archived</strong>
+          {version.dirName} is a historical snapshot{version.releaseDate ? ` from ${version.releaseDate}` : ''}.
+          Read <a href={version.latestHref}>ATIF v{version.latestVersion}</a>
           {version.latestInMajorVersion && version.latestInMajorHref && (
             <>
-              {' '}or the final v{version.major}.x release at{' '}
-              <a href={version.latestInMajorHref}>ATIF v{version.latestInMajorVersion}</a>
+              {' '}or the final v{version.major}.x release,{' '}
+              <a href={version.latestInMajorHref}>v{version.latestInMajorVersion}</a>
             </>
           )}
-          .
+          {' '}instead.
         </p>
       )}
       {version.role === 'draft' && (
         <p>
-          <strong>Working Draft ({version.dirName})</strong> — Subject to change before finalization.
-          For production implementations, use{' '}
-          <a href={version.latestHref}>ATIF v{version.latestVersion} (Latest)</a>.
+          <strong>Working draft</strong>
+          {version.dirName} may change before it is finalized. For production, use{' '}
+          <a href={version.latestHref}>ATIF v{version.latestVersion}</a>.
         </p>
       )}
     </div>
@@ -75,22 +53,41 @@ const shouldShow = version.role !== 'latest';
 )}
 
 <style>
+  /* A single calm line: hollow status node, label, and where to go instead */
   .atif-status-banner {
+    --status: var(--atif-border-strong);
+    --status-ink: var(--sl-color-white);
     display: flex;
-    align-items: flex-start;
+    align-items: baseline;
     gap: 0.7rem;
-    margin: 0 0 1.5rem 0;
-    padding: 0.8rem 1rem;
-    border-radius: 0.45rem;
+    margin: 0 0 1.75rem 0;
+    padding: 0.7rem 0.95rem;
     border: 1px solid var(--atif-border);
-    font-size: 0.9rem;
+    border-radius: 0.5rem;
+    background: var(--atif-surface-subtle);
+    font-size: 0.875rem;
     line-height: 1.55;
+    color: var(--sl-color-gray-2);
   }
 
-  .atif-status-banner__icon {
+  .atif-status-banner--legacy {
+    --status: var(--atif-amber-border);
+    --status-ink: var(--atif-amber-ink);
+  }
+
+  .atif-status-banner--draft {
+    --status: var(--atif-draft-border);
+    --status-ink: var(--atif-draft-ink);
+  }
+
+  .atif-status-banner__node {
     flex-shrink: 0;
-    display: inline-flex;
-    margin-top: 0.15rem;
+    width: 0.625rem;
+    height: 0.625rem;
+    border: 2.5px solid var(--status);
+    border-radius: 50%;
+    box-sizing: border-box;
+    transform: translateY(0.02rem);
   }
 
   .atif-status-banner__body p {
@@ -98,27 +95,24 @@ const shouldShow = version.role !== 'latest';
     max-width: none;
   }
 
+  .atif-status-banner strong {
+    margin-inline-end: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--status-ink);
+  }
+
   .atif-status-banner a {
     font-weight: 600;
+    color: var(--sl-color-white);
     text-decoration: underline;
-    color: inherit;
+    text-decoration-color: var(--atif-border-strong);
+    text-underline-offset: 0.22em;
   }
 
-  .atif-status-banner--legacy {
-    background: var(--atif-amber-bg);
-    border-color: var(--atif-amber-border);
-    color: var(--atif-amber-ink);
-  }
-
-  .atif-status-banner--archived {
-    background: var(--atif-archive-bg);
-    border-color: var(--atif-archive-border);
-    color: var(--atif-archive-ink);
-  }
-
-  .atif-status-banner--draft {
-    background: var(--atif-draft-bg);
-    border-color: var(--atif-draft-border);
-    color: var(--atif-draft-ink);
+  .atif-status-banner a:hover {
+    text-decoration-color: var(--atif-emerald);
   }
 </style>

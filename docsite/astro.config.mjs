@@ -40,6 +40,8 @@ export default defineConfig({
       customCss: ['./src/styles/custom.css'],
       expressiveCode: {
         themes: ['github-dark-default', 'github-light-default'],
+        // Code surfaces take the site's carbon-slate UI colours instead of the themes' own blacks
+        useStarlightUiThemeColors: true,
         styleOverrides: {
           borderRadius: '0.45rem',
           borderColor: 'var(--atif-border)',
