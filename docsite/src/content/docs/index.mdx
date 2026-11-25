@@ -1,6 +1,6 @@
 ---
-title: Agent Trajectory Interchange Format
-description: ATIF is an open format for recording what AI agents do — every prompt, tool call, retry, and subagent — so the same run can be debugged, evaluated, and trained on with any tool.
+title: ATIF - Agent Trajectory Interchange Format
+description: ATIF is an open, harness-agnostic, format for recording AI agent activity from prompts to tool calls and subagents.
 template: splash
 tableOfContents: false
 editUrl: false
@@ -15,14 +15,13 @@ import FeatureGlyph from '../../components/home/FeatureGlyph.astro';
 <div class="atif-home">
   <section class="atif-hero not-content">
     <div class="atif-hero__copy">
-      <p class="atif-hero__headline">Every agent run, written down the same way.</p>
-      <p class="atif-hero__lede">Agents think, call tools, retry, and hand work to other agents — and every framework logs that differently. ATIF is an open file format that captures the whole run in one predictable shape, so you can debug it, score it, and train on it without writing another parser.</p>
+      <p class="atif-hero__headline">One format for any agent run</p>
+      <p class="atif-hero__lede">ATIF is an open file format that captures agent trajectories in a predictable shape so you can debug it, analyze it, score it, and train on it without writing another parser.</p>
       <div class="atif-cta-row">
         <a href="/spec/v2.0/" class="atif-btn atif-btn--primary">Read the v2.0 spec</a>
         <a href="/validator/" class="atif-btn atif-btn--secondary">Try the validator</a>
         <a href="/guides/quickstart/" class="atif-textlink">Quickstart</a>
       </div>
-      <p class="atif-hero__fineprint">An open standard under Apache-2.0, originated in <a href="https://github.com/harbor-framework/harbor">Harbor</a>.</p>
     </div>
     <TrajectoryHero />
   </section>
@@ -31,14 +30,13 @@ import FeatureGlyph from '../../components/home/FeatureGlyph.astro';
     <div class="atif-why" data-reveal>
       <h2>Why a shared format?</h2>
       <div class="atif-why__prose">
-        <p>Ask three agent frameworks what happened during a run and you get three different answers. One keeps a chat transcript. Another writes a list of unlabelled items. A third streams fragments you have to stitch back together yourself.</p>
-        <p>Each is fine on its own — until you want to compare them. Then every dashboard, eval script, and training job starts with a one-off parser that breaks the next time a framework ships an update. ATIF replaces those parsers with one well-specified file.</p>
+        <p>ATIF's rich semantics provide a common foundation for an ecosystem of tools across observability, analysis, evaluation, training, and more. A shared format allows tools to focus on value-added capabilities instead of re-implementing per harness parsers again and again.</p>
       </div>
     </div>
     <div class="atif-audiences">
       <div class="atif-audience" data-reveal>
         <h3>If you build agents</h3>
-        <p>Log each event the moment it happens. No buffering whole turns in memory, and no losing the run when a process dies halfway through.</p>
+        <p>ATIF's append-only streaming format makes compatibility a straightforward translation of the native events already flowing through your custom agent harness.</p>
       </div>
       <div class="atif-audience" data-reveal style="--reveal-i:1">
         <h3>If you run evals or RL</h3>
@@ -46,31 +44,31 @@ import FeatureGlyph from '../../components/home/FeatureGlyph.astro';
       </div>
       <div class="atif-audience" data-reveal style="--reveal-i:2">
         <h3>If you debug trajectories</h3>
-        <p>See what actually happened, in order — including the retries, rewinds, and subagents that most logs quietly throw away.</p>
+        <p>See what actually happened including the retries, rewinds, and subagents that most logs quietly throw away.</p>
       </div>
     </div>
   </section>
 
   <section class="atif-section not-content">
     <div class="atif-section__head" data-reveal>
-      <h2>From a live stream to a tidy record</h2>
-      <p>ATIF has two modes that share one line-by-line JSON format. You write the first while the agent runs. The second is what you read afterwards.</p>
+      <h2>From live stream to rich record</h2>
+      <p>ATIF has a stream-friendly event format optimized for live activity that consolidates into an analysis-friendly format easy for humans or agents to understand.</p>
     </div>
     <div class="atif-flow" data-reveal>
       <div class="atif-flow__step">
         <p class="atif-flow__tag"><code>.atif-e.jsonl</code></p>
-        <h3>Record</h3>
-        <p>Your harness appends one small JSON line per event: a prompt arrives, the model replies, a tool returns. Nothing is rewritten, so a crash never corrupts what is already on disk.</p>
+        <h3>Stream agent activity</h3>
+        <p>Your harness appends one small JSON line per event: a prompt arrives, the model replies, a tool returns. ATIF's durable append-only format survives crashes and restarts.</p>
       </div>
       <div class="atif-flow__step">
         <p class="atif-flow__tag"><code>events → trajectories</code></p>
-        <h3>Consolidate</h3>
-        <p>A deterministic pass folds those events into numbered steps, attaches each tool result to the call that made it, and files retries, forks, and subagents as linked sibling trajectories.</p>
+        <h3>Consolidate into trajectories</h3>
+        <p>A deterministic pass folds the event stream into numbered steps, collating tool calls with their results and linking together trees of subagents.</p>
       </div>
       <div class="atif-flow__step">
         <p class="atif-flow__tag"><code>.atif.jsonl</code></p>
-        <h3>Query</h3>
-        <p>The result reads top to bottom like a story, and maps one-to-one onto Protobuf and six warehouse tables — so the same run works in a notebook, a viewer, or BigQuery.</p>
+        <h3>Query and analyze</h3>
+        <p>The result reads easily from programmatic tools and maps one-to-one onto Protobuf and analytical SQL tables. ATIF's rich semantics enable aggregate analysis across harnesses.</p>
       </div>
     </div>
   </section>
@@ -91,13 +89,13 @@ import FeatureGlyph from '../../components/home/FeatureGlyph.astro';
         <FeatureGlyph kind="multimodal" />
         <h3>Steps that keep everything in order</h3>
         <p>A step holds reasoning, text, images, audio, and tool calls in the order they happened, with each action's arguments, output, timing, and approval right beside it. Oversized outputs keep a readable preview and a pointer to the full blob.</p>
-        <a href="/spec/v2.0/#steps-multimodal-content--context-compaction">Steps and multimodal content</a>
+        <a href="/spec/v2.0/#step">Steps and multimodal content</a>
       </div>
       <div class="atif-feature" data-reveal>
         <FeatureGlyph kind="lineage" />
         <h3>Nothing gets thrown away</h3>
         <p>Retries, rewinds, forks, best-of-N candidates, and subagents are stored as sibling trajectories that point back to where they branched. Replay the path the agent kept — or study the ones it abandoned.</p>
-        <a href="/spec/v2.0/#ndjson-records-sessions-trajectories--lineage">Lineage and branching</a>
+        <a href="/spec/v2.0/#branching-modes">Lineage and branching</a>
       </div>
       <div class="atif-feature" data-reveal style="--reveal-i:1">
         <FeatureGlyph kind="warehouse" />
@@ -219,7 +217,7 @@ ORDER BY failed DESC;
         <p>A discoverable skill that teaches coding agents how to read, write, and validate ATIF.</p>
       </div>
     </div>
-    <p class="atif-footnote">Coming from v1.x? Read the <a href="/guides/migrating-from-v1/">migration guide</a> or browse the <a href="/spec/v1.8/">v1.8 legacy specification</a>.</p>
+    <p class="atif-footnote">Coming from v1.x? Read the <a href="/guides/migrating-from-v1/">migration guide</a> or browse the <a href="/spec/v1.8/">v1.8 specification</a>.</p>
   </section>
 
   <section class="atif-section atif-endpoints">
@@ -230,7 +228,7 @@ ORDER BY failed DESC;
 
 | Resource | Endpoint | Description |
 | :--- | :--- | :--- |
-| **Full v2.0 Spec (Markdown)** | [`/spec/v2.0/full.md`](/spec/v2.0/full.md) | Single-fetch Markdown bundle combining `SPEC.md` and all four companion references. |
+| **Full v2.0 Spec (Markdown)** | [`/spec/v2.0/full.md`](/spec/v2.0/full.md) | Single-fetch Markdown bundle combining `SPEC.md` and all companion references. |
 | **Agent Skill (`draft-zzn-dvs-00`)** | [`/.well-known/skills/atif/SKILL.md`](/.well-known/skills/atif/SKILL.md) | Lightweight discovery pointer indexed at [`/.well-known/skills/index.json`](/.well-known/skills/index.json). |
 | **JSON Schema 2020-12** | [`/schema/v2.0/atif-record.schema.json`](/schema/v2.0/atif-record.schema.json) | Line-level `AtifRecord` envelope (with [`canonical-actions.schema.json`](/schema/v2.0/canonical-actions.schema.json) and [`common-defs.schema.json`](/schema/v2.0/common-defs.schema.json)). |
 | **Protocol Buffers** | [`/schema/v2.0/atif.proto`](/schema/v2.0/atif.proto) | Canonical `proto3` wire definition (`buf lint` and `buf build` verified). |
