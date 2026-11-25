@@ -17,7 +17,7 @@ Line 1 of every ATIF v2.0 file is a `type: "meta"` header that declares `schema_
 | **`trajectories`** | `.atif.jsonl`<br>`.atif.tar.zst` | `"session"`, `"trajectory"`, `"step"`, `"extension"` | Evaluation, visualization, warehouse ingestion, SFT/RL datasets, and portable sharing. Every trajectory has contiguous `step_id`s (`1..N`), colocated `Action` inputs/outputs, and an optional line-1 `meta.manifest` directory preview. |
 
 :::tip[Portable Blob Archives]
-When offloading large tool outputs, diffs, or media assets into a single portable file, package `atif.jsonl` as the **first entry** of a Zstandard-compressed tar archive (`.atif.tar.zst`) alongside `blobs/sha256/<first-2-hex>/<64-hex>`. See [Truncation & Blobs](/spec/v2.0/#inline-truncation-truncationinfo--content-addressed-blobs-blobreference).
+When offloading large tool outputs, diffs, or media assets into a single portable file, package `atif.jsonl` as the **first entry** of a Zstandard-compressed tar archive (`.atif.tar.zst`) alongside `blobs/sha256/<first-2-hex>/<64-hex>`. See [Truncation, Blobs, and Archive Packaging](/spec/v2.0/#truncation-blobs-and-archive-packaging).
 :::
 
 ---
@@ -39,7 +39,7 @@ If your harness or post-hoc converter already has completed turns, emit a `.atif
 2. **Required `trajectory_id`, optional `session_id`**: Every trajectory must have a unique `trajectory_id` within the file. Standalone single-trajectory runs may omit `session_id` and `"session"` rows; multi-trajectory runs share a `session_id` and emit a `"session"` row before its trajectories.
 3. **Row ordering**: Emit each `"trajectory"` row before its `"step"` rows, and emit each trajectory's `"step"` rows in strictly contiguous ascending `step_id` order (`1, 2, ..., N`, or starting at `first_step_id` for Delta branches).
 4. **Unique `action_id` & derived `type` discriminators**: Keep `Action.action_id` unique within `trajectory_id`. In `.atif.jsonl`, always populate `ContentPart.type` (`"text"`, `"reasoning"`, `"action"`, `"image"`, etc.) and `CanonicalAction.type` (`"shell_command"`, `"file_write"`, `"mcp_tool"`, etc.).
-5. **Inclusive token accounting**: `input_tokens` **must** include `cache_read_tokens` and `cache_write_tokens`, and `output_tokens` **must** include `reasoning_tokens`. See [Cross-Provider Token Normalization](/spec/v2.0/references/migration-and-extensions/#cross-provider-token--cost-normalization).
+5. **Inclusive token accounting**: `input_tokens` **must** include `cache_read_tokens` and `cache_write_tokens`, and `output_tokens` **must** include `reasoning_tokens`. See [Cross-Provider Token Normalization](/spec/v2.0/#cross-provider-token-normalization).
 
 ---
 
@@ -61,9 +61,9 @@ Harnesses that want crash-safe, O(1)-memory runtime logging should append `Event
 Notice how lightweight runtime emission is:
 - **Linear by default**: You never track `parent_event_id` on normal turns. Only emit `event.branch` (`{ "after_event_id": "ev-3" }`) when rewinding, retrying, or branching.
 - **No turn buffering**: Multiple content slices sharing a `response_id` fold into one `Step`, and subsequent `{ "action": { "action_id": "toolu_01", ... } }` events merge `output`, `end_time`, and partial `canonical` updates (like `exit_code: 0`) onto the original action in place.
-- **Deterministic consolidation**: The three-phase [Stream Consolidation Algorithm](/spec/v2.0/#three-phase-stream-consolidation-algorithm-events--trajectories) transforms `.atif-e.jsonl` into `.atif.jsonl`, turning displaced event tips (`ev-4`) into sibling Delta trajectories (`traj-1#retry-1`).
+- **Deterministic consolidation**: The three-phase [Stream Consolidation Algorithm](/spec/v2.0/#stream-consolidation-algorithm) transforms `.atif-e.jsonl` into `.atif.jsonl`, turning displaced event tips (`ev-4`) into sibling Delta trajectories (`traj-1#retry-1`).
 
-For complete harness-specific mappings (Claude Code, Codex CLI, Cursor, OpenCode), see [Translating Native Harness Formats](/spec/v2.0/references/harness-examples/) and download the reference fixtures [session.atif-e.jsonl](/examples/v2.0/session.atif-e.jsonl) and [session.atif.jsonl](/examples/v2.0/session.atif.jsonl).
+For complete harness-specific mappings (Claude Code, Codex CLI, Cursor CLI), see [Translating Native Harness Formats](/spec/v2.0/references/harness-examples/) and download the reference fixtures [session.atif-e.jsonl](/examples/v2.0/session.atif-e.jsonl) and [session.atif.jsonl](/examples/v2.0/session.atif.jsonl).
 
 ---
 

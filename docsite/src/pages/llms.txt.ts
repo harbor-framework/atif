@@ -1,9 +1,39 @@
 import type { APIRoute } from 'astro';
-import { discoverSpecVersions, getLatestSpecVersion } from '../lib/spec-loader';
+import { discoverSpecVersions, getLatestSpecVersion, type VersionInfo } from '../lib/spec-loader';
+
+function appendVersionSection(lines: string[], v: VersionInfo, heading: string) {
+  lines.push(`## ${heading}`, '');
+  lines.push(`- [${v.title}](${v.mdHref}): Core normative specification`);
+  if (v.dirName === 'v2.0') {
+    lines.push(
+      `- [Complete ${v.dirName} Single-Fetch Bundle](/spec/${v.dirName}/full.md): Core spec + all companion references in one Markdown file`
+    );
+  }
+  for (const ref of v.references) {
+    lines.push(`- [${ref.title}](${ref.mdHref})${ref.description ? `: ${ref.description}` : ''}`);
+  }
+  if (v.changelogMdHref) {
+    lines.push(`- [${v.dirName} Changelog](${v.changelogMdHref}): Changes and highlights`);
+  }
+  if (v.schemas.length > 0) {
+    lines.push('', `### Machine-Readable Schemas (${v.dirName})`, '');
+    for (const schema of v.schemas) {
+      lines.push(`- [${schema.label}](${schema.href})`);
+    }
+  }
+  if (v.examples.length > 0) {
+    lines.push('', `### Reference Examples (${v.dirName})`, '');
+    for (const ex of v.examples) {
+      lines.push(`- [${ex.fileName}](${ex.href})`);
+    }
+  }
+  lines.push('');
+}
 
 export const GET: APIRoute = () => {
   const versions = discoverSpecVersions();
   const latest = getLatestSpecVersion();
+  const drafts = versions.filter((v) => v.role === 'draft');
   const legacy = versions.find((v) => v.role === 'legacy');
 
   const lines: string[] = [
@@ -16,37 +46,17 @@ export const GET: APIRoute = () => {
     '- [DVS Skill Index](/.well-known/skills/index.json): Machine-readable HTTP skill discovery manifest',
     '- [ATIF Agent Skill](/.well-known/skills/atif/SKILL.md): Compact pointer skill with canonical Markdown and schema references',
     '',
-    `## Specification (${latest?.dirName ?? 'v2.0'} — Latest)`,
-    '',
   ];
 
+  for (const draft of drafts) {
+    appendVersionSection(lines, draft, `Working Draft Specification (${draft.dirName} — Draft)`);
+  }
+
   if (latest) {
-    lines.push(`- [${latest.title}](${latest.mdHref}): Core normative specification`);
-    lines.push(`- [Complete ${latest.dirName} Single-Fetch Bundle](/spec/${latest.dirName}/full.md): Core spec + all companion references in one Markdown file`);
-    for (const ref of latest.references) {
-      lines.push(`- [${ref.title}](${ref.mdHref})${ref.description ? `: ${ref.description}` : ''}`);
-    }
-    if (latest.changelogMdHref) {
-      lines.push(`- [${latest.dirName} Changelog](${latest.changelogMdHref}): Breaking changes and release highlights`);
-    }
-  }
-
-  if (latest && latest.schemas.length > 0) {
-    lines.push('', `## Machine-Readable Schemas (${latest.dirName})`, '');
-    for (const schema of latest.schemas) {
-      lines.push(`- [${schema.label}](${schema.href})`);
-    }
-  }
-
-  if (latest && latest.examples.length > 0) {
-    lines.push('', `## Reference Examples (${latest.dirName})`, '');
-    for (const ex of latest.examples) {
-      lines.push(`- [${ex.fileName}](${ex.href})`);
-    }
+    appendVersionSection(lines, latest, `Specification (${latest.dirName} — Latest Final)`);
   }
 
   lines.push(
-    '',
     '## Guides',
     '',
     '- [Quickstart](/guides/quickstart.md): Emit, read, and validate ATIF v2.0 files',

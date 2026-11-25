@@ -25,10 +25,10 @@ Specifications are contracts that long-lived datasets and parsers rely on for ye
 
 | Derived Role | Rule | Current Versions | Behavior |
 | :--- | :--- | :--- | :--- |
-| **Latest** | Highest `(major, minor)` with `status: "final"` | `v2.0` | Default target of `/spec/`; recommended for all new implementations. |
-| **Legacy** | Highest `(major, minor)` with `status: "final"` in a prior major line | `v1.8` | Supported for existing v1.x producers/consumers; displays a calm banner pointing to Latest. |
-| **Archived** | All earlier `status: "final"` versions | `v1.0`–`v1.7` | Preserved verbatim for historical reference; displays a banner pointing to Latest and the end-of-line major release (`v1.8`). |
-| **Draft** | Any version with `status: "draft"` | *(none active)* | Work-in-progress specification under RFC review; never selected as the default `/spec/` target. |
+| **Latest** | Highest `(major, minor)` with `status: "final"` | `v1.8` | Default target of `/spec/`; current finalized standard for production implementations. |
+| **Legacy** | Highest `(major, minor)` with `status: "final"` in a prior major line | *(none active while v2.0 is draft)* | Supported for existing prior-major producers/consumers; displays a calm banner pointing to Latest. |
+| **Archived** | All earlier `status: "final"` versions | `v1.0`–`v1.7` | Preserved verbatim for historical reference; displays a banner pointing to Latest (`v1.8`). |
+| **Draft** | Any version with `status: "draft"` | `v2.0` | Work-in-progress specification under community review; never selected as the default `/spec/` target. |
 
 ### Semantic Versioning Policy
 

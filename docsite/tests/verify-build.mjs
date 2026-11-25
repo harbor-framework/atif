@@ -99,9 +99,10 @@ for (const v of expectedVersions) {
 
 const expectedV2Refs = [
   'canonical-actions',
-  'harness-examples',
-  'migration-and-extensions',
+  'extensions',
   'projections',
+  'harness-examples',
+  'v1-migration',
 ];
 for (const ref of expectedV2Refs) {
   check(
@@ -149,53 +150,53 @@ if (fileExists('spec/v2.0/references/projections/index.html')) {
 if (fileExists('spec/index.html')) {
   const specRedirectHtml = readDist('spec/index.html');
   check(
-    specRedirectHtml.includes('/spec/v2.0/'),
-    '/spec/index.html does not redirect to latest final /spec/v2.0/'
+    specRedirectHtml.includes('/spec/v1.8/'),
+    '/spec/index.html does not redirect to latest final /spec/v1.8/'
   );
 }
 
 if (fileExists('spec/v2.0/index.html')) {
   const v2Html = readDist('spec/v2.0/index.html');
-  check(v2Html.includes('v2.0 (Latest)'), 'v2.0 page missing derived "v2.0 (Latest)" label');
+  check(v2Html.includes('v2.0 (Draft)'), 'v2.0 page missing derived "v2.0 (Draft)" label');
   check(
-    !v2Html.includes('data-spec-role="legacy"') &&
-      !v2Html.includes('data-spec-role="archived"') &&
-      !v2Html.includes('data-spec-role="draft"'),
-    'v2.0 (Latest) should not render a legacy/archived/draft status banner'
+    v2Html.includes('data-spec-role="draft"'),
+    'v2.0 (Draft) page missing Working Draft SpecStatusBanner'
+  );
+  check(
+    v2Html.includes('/spec/v1.8/'),
+    'v2.0 (Draft) banner must link to latest final /spec/v1.8/'
   );
   const peleCount = (v2Html.match(/class="pele\b/g) ?? []).length;
   check(
-    peleCount >= 2,
-    `v2.0 spec expected >=2 rendered Pele Mermaid SVGs, found ${peleCount}`
+    peleCount >= 4,
+    `v2.0 spec expected >=4 rendered Pele Mermaid SVGs, found ${peleCount}`
   );
   check(
     !v2Html.includes('data-language="mermaid"'),
     'v2.0 spec still has unrendered raw mermaid code block instead of Pele SVG'
   );
   check(
-    v2Html.includes('class="katex"') && !v2Html.includes('$O(1)$'),
-    'v2.0 spec expected rendered KaTeX math with no raw $O(1)$ literals'
+    !v2Html.includes('$O(1)$') && !v2Html.includes('\\mathcal{T}'),
+    'v2.0 spec contains raw LaTeX tokens'
   );
 }
 
 if (fileExists('spec/v2.0/changelog/index.html')) {
   const v2ChangelogHtml = readDist('spec/v2.0/changelog/index.html');
   check(
-    v2ChangelogHtml.includes('class="katex"') && !v2ChangelogHtml.includes('$O(1)$'),
-    'v2.0 changelog expected rendered KaTeX math with no raw $O(1)$ literals'
+    !v2ChangelogHtml.includes('$O(1)$') && !v2ChangelogHtml.includes('Best-of-$N$'),
+    'v2.0 changelog contains raw LaTeX tokens'
   );
 }
 
 if (fileExists('spec/v1.8/index.html')) {
   const v18Html = readDist('spec/v1.8/index.html');
-  check(v18Html.includes('v1.8 (Legacy)'), 'v1.8 page missing derived "v1.8 (Legacy)" label');
+  check(v18Html.includes('v1.8 (Latest)'), 'v1.8 page missing derived "v1.8 (Latest)" label');
   check(
-    v18Html.includes('data-spec-role="legacy"'),
-    'v1.8 page missing Legacy SpecStatusBanner'
-  );
-  check(
-    v18Html.includes('/spec/v2.0/'),
-    'v1.8 Legacy banner must link to latest /spec/v2.0/'
+    !v18Html.includes('data-spec-role="legacy"') &&
+      !v18Html.includes('data-spec-role="archived"') &&
+      !v18Html.includes('data-spec-role="draft"'),
+    'v1.8 (Latest) should not render a legacy/archived/draft status banner'
   );
 }
 
@@ -211,8 +212,8 @@ for (const archivedVer of ['v1.0', 'v1.1', 'v1.2', 'v1.3', 'v1.4', 'v1.5', 'v1.6
       `${archivedVer} page missing Archived SpecStatusBanner`
     );
     check(
-      html.includes('/spec/v2.0/') && html.includes('/spec/v1.8/'),
-      `${archivedVer} Archived banner must link to both /spec/v2.0/ and /spec/v1.8/`
+      html.includes('/spec/v1.8/'),
+      `${archivedVer} Archived banner must link to latest final /spec/v1.8/`
     );
   }
 }
@@ -452,8 +453,8 @@ if (fs.existsSync(firebasePath)) {
 
     const redirects = fb?.hosting?.redirects ?? [];
     check(
-      redirects.some((r) => r.source === '/spec' && r.destination === '/spec/v2.0/'),
-      'firebase.json missing /spec -> /spec/v2.0/ redirect'
+      redirects.some((r) => r.source === '/spec' && r.destination === '/spec/v1.8/'),
+      'firebase.json missing /spec -> /spec/v1.8/ redirect'
     );
 
     const headers = fb?.hosting?.headers ?? [];
@@ -483,26 +484,55 @@ if (fs.existsSync(firebasePath)) {
 }
 
 // ---------------------------------------------------------------------------
-// 8. Internal root-relative link & /_astro/ asset integrity across all HTML pages
+// 8. Internal root-relative link, anchor, & /_astro/ asset integrity across all HTML pages
 // ---------------------------------------------------------------------------
 const brokenLinks = [];
+const brokenAnchors = [];
 const missingAssets = [];
+const htmlIdCache = new Map();
+
+function getHtmlIds(absHtmlPath) {
+  if (htmlIdCache.has(absHtmlPath)) return htmlIdCache.get(absHtmlPath);
+  const content = fs.readFileSync(absHtmlPath, 'utf-8');
+  const ids = new Set();
+  for (const m of content.matchAll(/\bid=["']([^"']+)["']/g)) {
+    ids.add(m[1]);
+  }
+  htmlIdCache.set(absHtmlPath, ids);
+  return ids;
+}
+
 for (const htmlFile of htmlFiles) {
   const relHtml = path.relative(distDir, htmlFile).replace(/\\/g, '/');
   if (relHtml === '404.html') continue;
   const html = fs.readFileSync(htmlFile, 'utf-8');
 
-  for (const m of html.matchAll(/\bhref=["'](\/[^"'#?]*)/g)) {
-    const target = m[1];
+  for (const m of html.matchAll(/\bhref=["'](\/[^"'?]*)/g)) {
+    const rawTarget = m[1];
+    const [target, fragment] = rawTarget.split('#');
     if (target.startsWith('//') || target.startsWith('/pagefind/')) {
       continue;
     }
-    if (!resolveDistUrl(target)) {
+    const resolved = resolveDistUrl(target);
+    if (!resolved) {
       if (target.startsWith('/_astro/')) {
         missingAssets.push(`/${relHtml} -> ${target}`);
       } else {
         brokenLinks.push(`/${relHtml} -> ${target}`);
       }
+    } else if (fragment && resolved.endsWith('.html')) {
+      const ids = getHtmlIds(resolved);
+      if (!ids.has(fragment)) {
+        brokenAnchors.push(`/${relHtml} -> ${rawTarget}`);
+      }
+    }
+  }
+
+  for (const m of html.matchAll(/\bhref=["']#([^"']+)["']/g)) {
+    const fragment = m[1];
+    const ids = getHtmlIds(htmlFile);
+    if (!ids.has(fragment)) {
+      brokenAnchors.push(`/${relHtml} -> #${fragment}`);
     }
   }
 
@@ -520,6 +550,10 @@ check(
 check(
   brokenLinks.length === 0,
   `Broken internal links detected (${brokenLinks.length}):\n  - ${brokenLinks.slice(0, 15).join('\n  - ')}`
+);
+check(
+  brokenAnchors.length === 0,
+  `Broken internal #fragment anchors detected (${brokenAnchors.length}):\n  - ${brokenAnchors.slice(0, 15).join('\n  - ')}`
 );
 
 // ---------------------------------------------------------------------------

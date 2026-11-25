@@ -10,13 +10,23 @@
     "redirects": [
       {
         "source": "/spec",
-        "destination": "/spec/v2.0/",
+        "destination": "/spec/v1.8/",
         "type": 302
       },
       {
         "source": "/spec/",
-        "destination": "/spec/v2.0/",
+        "destination": "/spec/v1.8/",
         "type": 302
+      },
+      {
+        "source": "/spec/v2.0/references/migration-and-extensions",
+        "destination": "/spec/v2.0/references/v1-migration/",
+        "type": 301
+      },
+      {
+        "source": "/spec/v2.0/references/migration-and-extensions/",
+        "destination": "/spec/v2.0/references/v1-migration/",
+        "type": 301
       }
     ],
     "headers": [

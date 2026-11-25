@@ -16,7 +16,7 @@ export const GET: APIRoute = () => {
   const tocLines = [
     '# ATIF v2.0 Complete Specification Bundle',
     '',
-    `> Single-fetch bundle combining \`spec/v2.0/SPEC.md\` and all companion references (released ${v2.releaseDate || '2026-11-25'}).`,
+    `> Single-fetch bundle combining \`spec/v2.0/SPEC.md\` and all companion references (${v2.status === 'draft' ? 'working draft, updated' : 'released'} ${v2.releaseDate || '2026-11-25'}).`,
     '> Machine-readable schemas are served separately:',
     ...v2.schemas
       .filter((s) => !s.fileName.endsWith('.yaml'))

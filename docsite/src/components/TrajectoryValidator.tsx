@@ -322,7 +322,7 @@ function validateInput(
     if (t.length > 0) nonEmptyLines.push({ line: idx + 1, text: t });
   });
 
-  // Step 1-4 format detection per spec/v2.0/references/migration-and-extensions.md
+  // Step 1-4 format detection per spec/v2.0/references/v1-migration.md
   let firstLineParsed: unknown = undefined;
   let firstLineParseOk = false;
   try {

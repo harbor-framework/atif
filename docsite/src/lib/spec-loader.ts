@@ -457,7 +457,7 @@ export function buildStarlightSidebar(activeVersionDir?: string): SidebarGroupIt
     groups.push({
       label: 'Specification (v2.0)',
       items: [
-        { label: 'Core Specification', link: '/spec/v2.0/', badge: { text: 'Latest', variant: 'success' } },
+        { label: 'Core Specification', link: '/spec/v2.0/', badge: { text: 'Draft', variant: 'note' } },
         { label: 'v2.0 Changelog', link: '/spec/v2.0/changelog/' },
         { label: 'Version History', link: '/spec/changelog/' },
       ],
@@ -466,10 +466,30 @@ export function buildStarlightSidebar(activeVersionDir?: string): SidebarGroupIt
       label: 'v2.0 References',
       items: [
         { label: 'Canonical Actions', link: '/spec/v2.0/references/canonical-actions/' },
-        { label: 'Harness Examples', link: '/spec/v2.0/references/harness-examples/' },
-        { label: 'Migration & Extensions', link: '/spec/v2.0/references/migration-and-extensions/' },
+        { label: 'Official Extensions', link: '/spec/v2.0/references/extensions/' },
         { label: 'Wire & Warehouse Projections', link: '/spec/v2.0/references/projections/' },
+        { label: 'Harness Examples', link: '/spec/v2.0/references/harness-examples/' },
+        { label: 'v1.x Migration', link: '/spec/v2.0/references/v1-migration/' },
       ],
+    });
+  }
+
+  const drafts = versions.filter((v) => v.role === 'draft' && v.dirName !== current?.dirName);
+  for (const draft of drafts) {
+    const draftItems: SidebarLinkItem[] = [
+      {
+        label: `${draft.dirName} Specification`,
+        link: draft.href,
+        badge: { text: 'Draft', variant: 'note' },
+      },
+      ...draft.references.map((ref) => ({
+        label: formatReferenceSidebarLabel(ref.slug, ref.title),
+        link: ref.href,
+      })),
+    ];
+    groups.push({
+      label: `Working Draft (${draft.dirName})`,
+      items: draftItems,
     });
   }
 
@@ -509,12 +529,14 @@ function formatReferenceSidebarLabel(slug: string, title: string): string {
   switch (slug) {
     case 'canonical-actions':
       return 'Canonical Actions';
-    case 'harness-examples':
-      return 'Harness Examples';
-    case 'migration-and-extensions':
-      return 'Migration & Extensions';
+    case 'extensions':
+      return 'Official Extensions';
     case 'projections':
       return 'Wire & Warehouse Projections';
+    case 'harness-examples':
+      return 'Harness Examples';
+    case 'v1-migration':
+      return 'v1.x Migration';
     default:
       return title.replace(/^ATIF\s+v\d+\.\d+\s+/i, '').trim() || slug;
   }

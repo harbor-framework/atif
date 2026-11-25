@@ -8,7 +8,7 @@ sidebar:
 ATIF v2.0 is a major revision designed for streaming harnesses, non-linear execution (rewinds, retries, subagents, compaction), cross-harness canonical actions, content-addressed blobs, and direct SQL/Protobuf projections.
 
 :::tip[Interactive Visual Walkthrough & Normative Mapping]
-For a visual, side-by-side tour of how ATIF evolved from v1.x to v2.0, open the **[ATIF 2.0 Interactive Explainer](https://mbleigh.github.io/harbor/)**. For the complete field-by-field normative upgrade contract and lossless round-trip rules, see **[Migration, Token Normalization, & Official Extensions](/spec/v2.0/references/migration-and-extensions/)**.
+For a visual, side-by-side tour of how ATIF evolved from v1.x to v2.0, open the **[ATIF 2.0 Interactive Explainer](https://mbleigh.github.io/harbor/)**. For the complete field-by-field normative upgrade contract and round-trip rules, see **[ATIF v1.x to v2.0 Migration](/spec/v2.0/references/v1-migration/)** and **[Official Extension Namespaces](/spec/v2.0/references/extensions/)**.
 :::
 
 ## Transition Strategy: Lossless Round-Tripping & Dual-Write
